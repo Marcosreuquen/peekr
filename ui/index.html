@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>peekr dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: monospace; background: #0d1117; color: #c9d1d9; padding: 1rem; }
+  h1 { color: #58a6ff; margin-bottom: 1rem; font-size: 1.2rem; }
+  #status { color: #3fb950; font-size: 0.8rem; margin-bottom: 1rem; }
+  #log { display: flex; flex-direction: column; gap: 0.5rem; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 6px; overflow: hidden; }
+  .card-header { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.75rem; cursor: pointer; user-select: none; }
+  .direction { font-size: 0.7rem; padding: 2px 6px; border-radius: 3px; font-weight: bold; }
+  .direction.IN  { background: #1f6feb; color: #fff; }
+  .direction.OUT { background: #388bfd22; color: #58a6ff; border: 1px solid #388bfd; }
+  .method { font-weight: bold; color: #d2a8ff; min-width: 50px; }
+  .host { color: #79c0ff; }
+  .path { color: #c9d1d9; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .status { font-weight: bold; }
+  .status.ok  { color: #3fb950; }
+  .status.err { color: #f85149; }
+  .ts { color: #6e7681; font-size: 0.75rem; margin-left: auto; white-space: nowrap; }
+  .card-body { padding: 0.75rem; border-top: 1px solid #30363d; display: none; }
+  .card-body.open { display: block; }
+  .card-body pre { white-space: pre-wrap; word-break: break-all; font-size: 0.8rem; color: #e6edf3; }
+  .label { color: #6e7681; font-size: 0.75rem; margin-top: 0.5rem; margin-bottom: 0.25rem; }
+</style>
+</head>
+<body>
+<h1>peekr dashboard</h1>
+<div id="status">connecting...</div>
+<div id="log"></div>
+<script>
+  const log = document.getElementById('log');
+  const status = document.getElementById('status');
+  const es = new EventSource('/events');
+
+  es.onopen = () => { status.textContent = 'connected'; status.style.color = '#3fb950'; };
+  es.onerror = () => { status.textContent = 'disconnected'; status.style.color = '#f85149'; };
+
+  es.onmessage = e => {
+    const r = JSON.parse(e.data);
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    const statusClass = r.statusCode < 400 ? 'ok' : 'err';
+    card.innerHTML = `
+      <div class="card-header">
+        <span class="direction ${r.direction}">${escHtml(r.direction)}</span>
+        <span class="method">${escHtml(r.method)}</span>
+        <span class="host">${escHtml(r.host)}</span>
+        <span class="path">${escHtml(r.url)}</span>
+        <span class="status ${statusClass}">${r.statusCode}</span>
+        <span class="ts">${new Date(r.timestamp).toLocaleTimeString()}</span>
+      </div>
+      <div class="card-body">
+        <div class="label">Request Body</div>
+        <pre>${escHtml(pretty(r.reqBody))}</pre>
+        <div class="label">Response Body</div>
+        <pre>${escHtml(pretty(r.resBody))}</pre>
+      </div>`;
+
+    card.querySelector('.card-header').addEventListener('click', () => {
+      card.querySelector('.card-body').classList.toggle('open');
+    });
+
+    log.prepend(card);
+  };
+
+  function pretty(s) {
+    try { return JSON.stringify(JSON.parse(s), null, 2); } catch { return s || ''; }
+  }
+  function escHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+</body>
+</html>

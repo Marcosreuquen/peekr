@@ -1,0 +1,26 @@
+{
+  "name": "peekr",
+  "version": "0.1.0",
+  "description": "Zero-dependency HTTP capture proxy — intercept, log and forward requests from any app to any upstream service.",
+  "type": "module",
+  "bin": {
+    "peekr": "./bin/peekr.mjs"
+  },
+  "files": [
+    "bin/"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "proxy",
+    "http",
+    "capture",
+    "debug",
+    "inspect",
+    "forward",
+    "logging"
+  ],
+  "author": "Marcos Reuquen",
+  "license": "MIT"
+}

@@ -21,7 +21,7 @@
 
 import http from "node:http";
 import https from "node:https";
-import { c, DIVIDER, prettyBody, logSection, logRequest, logResponse, COLORS } from '../lib/logger.mjs';
+import { c, DIVIDER, logRequest, logResponse } from '../lib/logger.mjs';
 
 // ── CLI ───────────────────────────────────────────────────────────────────────
 const args = process.argv.slice(2);
@@ -135,7 +135,7 @@ const server = http.createServer((req, res) => {
         forwardRes.on("data", (c) => forwardChunks.push(c));
         forwardRes.on("end", () => {
           const forwardBody = Buffer.concat(forwardChunks).toString();
-          logResponse({ id, statusCode: forwardRes.statusCode, body: forwardBody });
+          logResponse({ statusCode: forwardRes.statusCode, body: forwardBody });
 
           res.writeHead(forwardRes.statusCode, forwardRes.headers);
           res.end(forwardBody);

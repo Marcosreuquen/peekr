@@ -21,6 +21,7 @@
 
 import http from "node:http";
 import https from "node:https";
+import { c, DIVIDER, prettyBody, logSection, logRequest, logResponse, COLORS } from '../lib/logger.mjs';
 
 // ── CLI ───────────────────────────────────────────────────────────────────────
 const args = process.argv.slice(2);
@@ -72,50 +73,6 @@ if (!TARGET_HOST && !NO_FORWARD) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 let requestCounter = 0;
-const DIVIDER = "=".repeat(80);
-
-const COLORS = {
-  reset: "\x1b[0m",
-  dim: "\x1b[2m",
-  cyan: "\x1b[36m",
-  yellow: "\x1b[33m",
-  green: "\x1b[32m",
-  red: "\x1b[31m",
-  bold: "\x1b[1m",
-};
-
-const c = (color, text) => `${COLORS[color]}${text}${COLORS.reset}`;
-
-function prettyBody(raw) {
-  try {
-    return JSON.stringify(JSON.parse(raw), null, 2);
-  } catch {
-    return raw;
-  }
-}
-
-function logSection(label, content, color = "dim") {
-  console.log(c("dim", `\n--- ${label} ---`));
-  console.log(c(color, content));
-}
-
-function logRequest(id, method, url, timestamp, headers, body) {
-  console.log("\n" + DIVIDER);
-  console.log(
-    c("bold", `[#${id}]`) +
-      c("dim", ` ${timestamp}`) +
-      "  " +
-      c("cyan", `${method} ${url}`),
-  );
-  console.log(DIVIDER);
-
-  if (!NO_HEADERS) {
-    logSection("Headers", JSON.stringify(headers, null, 2));
-  }
-  if (body) {
-    logSection("Payload", prettyBody(body), "yellow");
-  }
-}
 
 // ── Server ────────────────────────────────────────────────────────────────────
 const server = http.createServer((req, res) => {
@@ -127,7 +84,16 @@ const server = http.createServer((req, res) => {
     const body = Buffer.concat(chunks).toString();
     const timestamp = new Date().toISOString();
 
-    logRequest(id, req.method, req.url, timestamp, req.headers, body);
+    logRequest({
+      id,
+      method: req.method,
+      url: req.url,
+      host: TARGET_HOST || '',
+      timestamp,
+      headers: req.headers,
+      body,
+      noHeaders: NO_HEADERS,
+    });
 
     // ── No-forward mode ──────────────────────────────────────────────────
     if (NO_FORWARD) {
@@ -169,13 +135,7 @@ const server = http.createServer((req, res) => {
         forwardRes.on("data", (c) => forwardChunks.push(c));
         forwardRes.on("end", () => {
           const forwardBody = Buffer.concat(forwardChunks).toString();
-          const statusColor = forwardRes.statusCode < 400 ? "green" : "red";
-          logSection(
-            `Response ${forwardRes.statusCode}`,
-            prettyBody(forwardBody),
-            statusColor,
-          );
-          console.log(DIVIDER + "\n");
+          logResponse({ id, statusCode: forwardRes.statusCode, body: forwardBody });
 
           res.writeHead(forwardRes.statusCode, forwardRes.headers);
           res.end(forwardBody);

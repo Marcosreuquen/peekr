@@ -122,3 +122,83 @@ SOME_SERVICE_BASE_URL=http://localhost:9999
 
 - Node.js >= 18
 - No npm dependencies
+
+---
+
+## `peekr run` — automatic HTTP interception
+
+`peekr run` spawns your app as a child process and automatically intercepts **all** outgoing HTTP/HTTPS traffic — no `.env` changes needed.
+
+```
+peekr run [options] -- <command>
+```
+
+### Options
+
+| Flag              | Description                                       | Default |
+| ----------------- | ------------------------------------------------- | ------- |
+| `--port <port>`   | Outgoing proxy port                               | 9999    |
+| `--target <host>` | Only log requests to this host (pass-through rest)| —       |
+| `--no-forward`    | Capture only — return mock 200, don't forward     | false   |
+| `--no-headers`    | Omit headers from log output                      | false   |
+| `--mock <json>`   | Custom JSON body for `--no-forward` mode          | `{}`    |
+
+### Examples
+
+```bash
+# Intercept all outgoing calls from a Node app
+peekr run -- node server.mjs
+
+# Intercept npm dev script, only log requests to api.example.com
+peekr run --target api.example.com -- npm run dev
+
+# Capture without forwarding
+peekr run --no-forward -- node server.mjs
+```
+
+**How it works:** peekr writes a tiny ESM loader to `/tmp`, injects it via `NODE_OPTIONS=--import`, and monkey-patches `node:http` and `node:https` in the child process so every outgoing request is routed to the local peekr proxy. Works with Axios, `fetch`, `undici`, `got`, and anything that goes through Node's built-in HTTP stack.
+
+---
+
+## `peekr ui` — live web dashboard
+
+`peekr ui` adds a browser-based dashboard with real-time request cards for both incoming and outgoing traffic.
+
+```
+peekr ui [options] [-- <command>]
+```
+
+### Traffic flow
+
+```
+External client → reverse proxy (:8888) → your app (:3000)
+                                                ↓ outgoing
+                                    peekr proxy (:9999) → real upstream
+                                         ↓
+                                  dashboard (:4000)
+```
+
+### Options
+
+| Flag                   | Description                                    | Default |
+| ---------------------- | ---------------------------------------------- | ------- |
+| `--app-port <port>`    | Port where your app listens                    | 3000    |
+| `--port <port>`        | Outgoing proxy port                            | 9999    |
+| `--reverse-port <port>`| Reverse proxy port (in front of your app)      | 8888    |
+| `--ui-port <port>`     | Dashboard port                                 | 4000    |
+| `--target <host>`      | Only log outgoing requests to this host        | —       |
+| `--no-forward`         | Capture only — return mock 200                 | false   |
+| `--no-headers`         | Omit headers from log output                   | false   |
+| `--mock <json>`        | Custom JSON body for `--no-forward` mode       | `{}`    |
+
+### Examples
+
+```bash
+# App already running on :3000 — just attach the dashboard
+peekr ui --app-port 3000
+
+# Start your app through peekr (intercepts outgoing too)
+peekr ui --app-port 3000 -- npm run dev
+```
+
+Open `http://localhost:4000` to see the live dashboard. Each request appears as a card showing direction (IN/OUT), method, host, path, status code, and collapsible body details.

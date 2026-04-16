@@ -7,7 +7,9 @@
     "peekr": "./bin/peekr.mjs"
   },
   "files": [
-    "bin/"
+    "bin/",
+    "lib/",
+    "ui/"
   ],
   "engines": {
     "node": ">=18"

@@ -71,7 +71,7 @@ Examples:
   }
 
   const TARGET_HOST = getArg(args, "target");
-  const PORT = parseInt(getArg(args, "port") || "9999", 10);
+  const PORT = parseInt(getArg(args, "port") || "49999", 10);
   const NO_FORWARD = hasFlag(args, "no-forward");
   const NO_HEADERS = hasFlag(args, "no-headers");
   const MOCK_BODY = getArg(args, "mock");
@@ -85,7 +85,7 @@ Examples:
   }
 
   // ── Server ────────────────────────────────────────────────────────────────────
-  const server = await createProxyServer({
+  const { port: actualPort } = await createProxyServer({
     port: PORT,
     target: TARGET_HOST,
     noForward: NO_FORWARD,
@@ -95,7 +95,7 @@ Examples:
 
   console.log(`\n${c('bold', 'peekr')} — HTTP Capture Proxy`);
   console.log(c('dim', '─'.repeat(40)));
-  console.log(`Listening on  ${c('cyan', `http://localhost:${PORT}`)}`);
+  console.log(`Listening on  ${c('cyan', `http://localhost:${actualPort}`)}`);
   if (NO_FORWARD) {
     console.log(`Mode          ${c('yellow', 'CAPTURE ONLY')} (no forwarding)`);
   } else {

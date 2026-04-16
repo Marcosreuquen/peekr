@@ -1,48 +1,52 @@
 #!/usr/bin/env node
 
+import { getArg, hasFlag } from '../lib/args.mjs';
+
 const subcommand = process.argv[2];
 
 if (subcommand === 'run') {
   const { runCommand } = await import('../lib/run-command.mjs');
   await runCommand(process.argv.slice(3));
-  process.exit(0);
-}
+} else if (subcommand === 'ui') {
+  try {
+    const { uiCommand } = await import('../lib/ui-command.mjs');
+    await uiCommand(process.argv.slice(3));
+  } catch (err) {
+    if (err.code === 'ERR_MODULE_NOT_FOUND') {
+      console.error('\npeekr ui is not yet available in this version.\n');
+      process.exit(1);
+    }
+    throw err;
+  }
+} else {
+  /**
+   * peekr — HTTP Capture Proxy
+   *
+   * Intercepts outgoing HTTP calls from any app, logs the full
+   * request/response cycle, and optionally forwards to the real upstream.
+   *
+   * Zero dependencies. Node.js >= 18 required.
+   *
+   * Usage:
+   *   peekr --target <host> [--port <port>] [--no-forward] [--no-headers]
+   *
+   * Options:
+   *   --target <host>   Upstream HTTPS hostname to forward to
+   *   --port <port>     Local port to listen on          (default: 9999)
+   *   --no-forward      Capture only, return mock 200    (default: false)
+   *   --no-headers      Omit headers from log output     (default: false)
+   *   --mock <json>     Custom mock response body for --no-forward mode
+   *   -h, --help        Show this help message
+   */
 
-if (subcommand === 'ui') {
-  const { uiCommand } = await import('../lib/ui-command.mjs');
-  await uiCommand(process.argv.slice(3));
-  process.exit(0);
-}
-// else fall through to existing proxy mode (backward compat)
+  const { c } = await import('../lib/logger.mjs');
+  const { createProxyServer } = await import('../lib/proxy-core.mjs');
 
-/**
- * peekr — HTTP Capture Proxy
- *
- * Intercepts outgoing HTTP calls from any app, logs the full
- * request/response cycle, and optionally forwards to the real upstream.
- *
- * Zero dependencies. Node.js >= 18 required.
- *
- * Usage:
- *   peekr --target <host> [--port <port>] [--no-forward] [--no-headers]
- *
- * Options:
- *   --target <host>   Upstream HTTPS hostname to forward to
- *   --port <port>     Local port to listen on          (default: 9999)
- *   --no-forward      Capture only, return mock 200    (default: false)
- *   --no-headers      Omit headers from log output     (default: false)
- *   --mock <json>     Custom mock response body for --no-forward mode
- *   -h, --help        Show this help message
- */
+  // ── CLI ───────────────────────────────────────────────────────────────────────
+  const args = process.argv.slice(2);
 
-import { c } from '../lib/logger.mjs';
-import { createProxyServer } from '../lib/proxy-core.mjs';
-
-// ── CLI ───────────────────────────────────────────────────────────────────────
-const args = process.argv.slice(2);
-
-if (args.includes("-h") || args.includes("--help")) {
-  console.log(`
+  if (args.includes("-h") || args.includes("--help")) {
+    console.log(`
 peekr v0.1.0 — HTTP Capture Proxy
 
 Usage:
@@ -63,46 +67,41 @@ Examples:
   peekr --no-forward
   peekr --no-forward --mock '{"ok":true}'
 `);
-  process.exit(0);
+    process.exit(0);
+  }
+
+  const TARGET_HOST = getArg(args, "target");
+  const PORT = parseInt(getArg(args, "port") || "9999", 10);
+  const NO_FORWARD = hasFlag(args, "no-forward");
+  const NO_HEADERS = hasFlag(args, "no-headers");
+  const MOCK_BODY = getArg(args, "mock");
+
+  if (!TARGET_HOST && !NO_FORWARD) {
+    console.error(
+      "\nError: --target <host> is required unless --no-forward is set.",
+    );
+    console.error("Run peekr --help for usage.\n");
+    process.exit(1);
+  }
+
+  // ── Server ────────────────────────────────────────────────────────────────────
+  const server = await createProxyServer({
+    port: PORT,
+    target: TARGET_HOST,
+    noForward: NO_FORWARD,
+    noHeaders: NO_HEADERS,
+    mockBody: MOCK_BODY,
+  });
+
+  console.log(`\n${c('bold', 'peekr')} — HTTP Capture Proxy`);
+  console.log(c('dim', '─'.repeat(40)));
+  console.log(`Listening on  ${c('cyan', `http://localhost:${PORT}`)}`);
+  if (NO_FORWARD) {
+    console.log(`Mode          ${c('yellow', 'CAPTURE ONLY')} (no forwarding)`);
+  } else {
+    console.log(`Forwarding to ${c('green', `https://${TARGET_HOST}`)}`);
+  }
+  if (NO_HEADERS) console.log(`Headers       ${c('dim', 'hidden (--no-headers)')}`);
+  console.log(c('dim', '─'.repeat(40)));
+  console.log('Waiting for requests...\n');
 }
-
-function getArg(name) {
-  const idx = args.indexOf(`--${name}`);
-  return idx !== -1 && idx + 1 < args.length ? args[idx + 1] : undefined;
-}
-const hasFlag = (name) => args.includes(`--${name}`);
-
-const TARGET_HOST = getArg("target");
-const PORT = parseInt(getArg("port") || "9999", 10);
-const NO_FORWARD = hasFlag("no-forward");
-const NO_HEADERS = hasFlag("no-headers");
-const MOCK_BODY = getArg("mock");
-
-if (!TARGET_HOST && !NO_FORWARD) {
-  console.error(
-    "\nError: --target <host> is required unless --no-forward is set.",
-  );
-  console.error("Run peekr --help for usage.\n");
-  process.exit(1);
-}
-
-// ── Server ────────────────────────────────────────────────────────────────────
-const server = await createProxyServer({
-  port: PORT,
-  target: TARGET_HOST,
-  noForward: NO_FORWARD,
-  noHeaders: NO_HEADERS,
-  mockBody: MOCK_BODY,
-});
-
-console.log(`\n${c('bold', 'peekr')} — HTTP Capture Proxy`);
-console.log(c('dim', '─'.repeat(40)));
-console.log(`Listening on  ${c('cyan', `http://localhost:${PORT}`)}`);
-if (NO_FORWARD) {
-  console.log(`Mode          ${c('yellow', 'CAPTURE ONLY')} (no forwarding)`);
-} else {
-  console.log(`Forwarding to ${c('green', `https://${TARGET_HOST}`)}`);
-}
-if (NO_HEADERS) console.log(`Headers       ${c('dim', 'hidden (--no-headers)')}`);
-console.log(c('dim', '─'.repeat(40)));
-console.log('Waiting for requests...\n');

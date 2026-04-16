@@ -19,9 +19,8 @@
  *   -h, --help        Show this help message
  */
 
-import http from "node:http";
-import https from "node:https";
-import { c, DIVIDER, logRequest, logResponse } from '../lib/logger.mjs';
+import { c } from '../lib/logger.mjs';
+import { createProxyServer } from '../lib/proxy-core.mjs';
 
 // ── CLI ───────────────────────────────────────────────────────────────────────
 const args = process.argv.slice(2);
@@ -71,104 +70,23 @@ if (!TARGET_HOST && !NO_FORWARD) {
   process.exit(1);
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-let requestCounter = 0;
-
 // ── Server ────────────────────────────────────────────────────────────────────
-const server = http.createServer((req, res) => {
-  const chunks = [];
-  const id = ++requestCounter;
-
-  req.on("data", (chunk) => chunks.push(chunk));
-  req.on("end", () => {
-    const body = Buffer.concat(chunks).toString();
-    const timestamp = new Date().toISOString();
-
-    logRequest({
-      id,
-      method: req.method,
-      url: req.url,
-      host: TARGET_HOST || '',
-      timestamp,
-      headers: req.headers,
-      body,
-      noHeaders: NO_HEADERS,
-    });
-
-    // ── No-forward mode ──────────────────────────────────────────────────
-    if (NO_FORWARD) {
-      let mockResponse;
-      if (MOCK_BODY) {
-        try {
-          mockResponse = JSON.parse(MOCK_BODY);
-        } catch {
-          console.error(
-            c(
-              "red",
-              `[#${id}] --mock value is not valid JSON, using empty object`,
-            ),
-          );
-          mockResponse = {};
-        }
-      } else {
-        mockResponse = {};
-      }
-
-      console.log(c("dim", `\n[#${id}] --no-forward: returning mock 200`));
-      console.log(DIVIDER + "\n");
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(mockResponse));
-      return;
-    }
-
-    // ── Forward to real upstream ─────────────────────────────────────────
-    const forwardReq = https.request(
-      {
-        hostname: TARGET_HOST,
-        port: 443,
-        path: req.url,
-        method: req.method,
-        headers: { ...req.headers, host: TARGET_HOST },
-      },
-      (forwardRes) => {
-        const forwardChunks = [];
-        forwardRes.on("data", (c) => forwardChunks.push(c));
-        forwardRes.on("end", () => {
-          const forwardBody = Buffer.concat(forwardChunks).toString();
-          logResponse({ statusCode: forwardRes.statusCode, body: forwardBody });
-
-          res.writeHead(forwardRes.statusCode, forwardRes.headers);
-          res.end(forwardBody);
-        });
-      },
-    );
-
-    forwardReq.on("error", (err) => {
-      console.error(c("red", `\n[#${id}] FORWARD ERROR: ${err.message}`));
-      console.log(DIVIDER + "\n");
-      res.writeHead(502, { "Content-Type": "application/json" });
-      res.end(
-        JSON.stringify({ error: "proxy forward failed", detail: err.message }),
-      );
-    });
-
-    forwardReq.write(body);
-    forwardReq.end();
-  });
+const server = await createProxyServer({
+  port: PORT,
+  target: TARGET_HOST,
+  noForward: NO_FORWARD,
+  noHeaders: NO_HEADERS,
+  mockBody: MOCK_BODY,
 });
 
-server.listen(PORT, () => {
-  console.log(`\n${c("bold", "peekr")} — HTTP Capture Proxy`);
-  console.log(c("dim", "─".repeat(40)));
-  console.log(`Listening on  ${c("cyan", `http://localhost:${PORT}`)}`);
-  if (NO_FORWARD) {
-    console.log(`Mode          ${c("yellow", "CAPTURE ONLY")} (no forwarding)`);
-  } else {
-    console.log(`Forwarding to ${c("green", `https://${TARGET_HOST}`)}`);
-  }
-  if (NO_HEADERS) {
-    console.log(`Headers       ${c("dim", "hidden (--no-headers)")}`);
-  }
-  console.log(c("dim", "─".repeat(40)));
-  console.log("Waiting for requests...\n");
-});
+console.log(`\n${c('bold', 'peekr')} — HTTP Capture Proxy`);
+console.log(c('dim', '─'.repeat(40)));
+console.log(`Listening on  ${c('cyan', `http://localhost:${PORT}`)}`);
+if (NO_FORWARD) {
+  console.log(`Mode          ${c('yellow', 'CAPTURE ONLY')} (no forwarding)`);
+} else {
+  console.log(`Forwarding to ${c('green', `https://${TARGET_HOST}`)}`);
+}
+if (NO_HEADERS) console.log(`Headers       ${c('dim', 'hidden (--no-headers)')}`);
+console.log(c('dim', '─'.repeat(40)));
+console.log('Waiting for requests...\n');

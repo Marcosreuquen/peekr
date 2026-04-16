@@ -25,6 +25,7 @@ Options:
   --no-forward       Capture only — return mock 200, don't forward
   --no-headers       Omit headers from log output
   --mock <json>      Custom JSON body for --no-forward mode
+  --log-file <path>  Also write logs to this file (survives terminal clears)
   -h, --help         Show this help
 
 Examples:
@@ -73,6 +74,7 @@ Options:
   --no-forward           Capture only — return mock 200
   --no-headers           Omit headers from log output
   --mock <json>          Custom JSON body for --no-forward mode
+  --log-file <path>      Also write logs to this file (survives terminal clears)
   -h, --help             Show this help
 
 Examples:

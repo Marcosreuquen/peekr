@@ -1,4 +1,20 @@
 #!/usr/bin/env node
+
+const subcommand = process.argv[2];
+
+if (subcommand === 'run') {
+  const { runCommand } = await import('../lib/run-command.mjs');
+  await runCommand(process.argv.slice(3));
+  process.exit(0);
+}
+
+if (subcommand === 'ui') {
+  const { uiCommand } = await import('../lib/ui-command.mjs');
+  await uiCommand(process.argv.slice(3));
+  process.exit(0);
+}
+// else fall through to existing proxy mode (backward compat)
+
 /**
  * peekr — HTTP Capture Proxy
  *

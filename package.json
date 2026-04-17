@@ -1,5 +1,5 @@
 {
-  "name": "peekr",
+  "name": "@marcosreuquen/peekr",
   "version": "0.1.0",
   "description": "Zero-dependency HTTP capture proxy — intercept, log and forward requests from any app to any upstream service.",
   "type": "module",
@@ -11,8 +11,20 @@
     "lib/",
     "ui/"
   ],
+  "scripts": {
+    "test": "node --check bin/peekr.mjs && node --check lib/*.mjs && node bin/peekr.mjs --help",
+    "lint": "node --check bin/peekr.mjs && node --check lib/*.mjs"
+  },
   "engines": {
     "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Marcosreuquen/peekr.git"
+  },
+  "homepage": "https://marcosreuquen.github.io/peekr/",
+  "bugs": {
+    "url": "https://github.com/Marcosreuquen/peekr/issues"
   },
   "keywords": [
     "proxy",
@@ -21,7 +33,9 @@
     "debug",
     "inspect",
     "forward",
-    "logging"
+    "logging",
+    "dashboard",
+    "interceptor"
   ],
   "author": "Marcos Reuquen",
   "license": "MIT"

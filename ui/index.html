@@ -17,7 +17,7 @@
   html, body { height: 100%; overflow: hidden; }
   body {
     font-family: var(--font-mono); background: var(--bg); color: var(--text);
-    display: grid; grid-template-rows: auto 1fr auto; grid-template-columns: 1fr auto;
+    display: grid; grid-template-rows: auto 1fr auto; grid-template-columns: auto 1fr auto;
     height: 100vh;
   }
 
@@ -45,7 +45,7 @@
 
   /* ── Request Table ──────────────────────────── */
   .table-wrap {
-    grid-column: 1; grid-row: 2; overflow: auto; background: var(--bg);
+    grid-column: 2; grid-row: 2; overflow: auto; background: var(--bg);
   }
   table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
   thead { position: sticky; top: 0; z-index: 2; }
@@ -88,7 +88,7 @@
 
   /* ── Detail Drawer ──────────────────────────── */
   .detail-drawer {
-    grid-column: 2; grid-row: 2; width: 0; overflow: hidden;
+    grid-column: 3; grid-row: 2; width: 0; overflow: hidden;
     transition: width 0.2s ease; background: var(--bg-alt); border-left: 1px solid var(--border);
   }
   .detail-drawer.open { width: 460px; overflow-y: auto; }
@@ -168,6 +168,101 @@
   }
   .log-content .log-line { white-space: pre-wrap; word-break: break-all; }
   .log-content .log-line.stderr { color: #f0883e; }
+
+  /* ── Rules Drawer ──────────────────────────── */
+  .rules-drawer {
+    grid-column: 1; grid-row: 2; width: 0; overflow: hidden;
+    transition: width 0.2s ease; background: var(--bg-alt); border-right: 1px solid var(--border);
+  }
+  .rules-drawer.open { width: 360px; overflow-y: auto; }
+  .rules-header {
+    display: flex; align-items: center; padding: 10px 12px;
+    border-bottom: 1px solid var(--border); font-family: var(--font-sans);
+    font-weight: 600; font-size: 0.8rem; color: var(--text-dim);
+  }
+  .rules-header .close-btn {
+    margin-left: auto; background: none; border: none; color: var(--text-dim);
+    cursor: pointer; font-size: 1.1rem; padding: 2px 6px;
+  }
+  .rules-header .close-btn:hover { color: var(--text); }
+  .rules-list { padding: 8px 12px; }
+  .rule-item {
+    display: flex; align-items: center; gap: 6px; padding: 6px 8px;
+    border: 1px solid var(--border); border-radius: 4px; margin-bottom: 6px;
+    font-size: 0.72rem; flex-wrap: wrap;
+  }
+  .rule-item .rule-action {
+    font-weight: bold; padding: 1px 6px; border-radius: 3px; font-size: 0.65rem;
+    text-transform: uppercase;
+  }
+  .rule-action-block { color: var(--red); background: #f8514915; }
+  .rule-action-mock { color: var(--yellow); background: #d2992215; }
+  .rule-item .rule-host { color: var(--text-bright); font-weight: 600; }
+  .rule-item .rule-route { color: var(--text-dim); }
+  .rule-item .rule-mock-summary { color: var(--text-dim); font-size: 0.68rem; width: 100%; margin-top: 2px; }
+  .rule-item .rule-delete {
+    margin-left: auto; background: none; border: none; color: var(--text-dim);
+    cursor: pointer; font-size: 0.9rem;
+  }
+  .rule-item .rule-delete:hover { color: var(--red); }
+  .rules-form { padding: 8px 12px; border-top: 1px solid var(--border); }
+  .rules-form .form-label {
+    font-family: var(--font-sans); font-size: 0.68rem; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.5px; margin: 8px 0 4px;
+  }
+  .rules-form .form-label:first-child { margin-top: 0; }
+  .rules-form input, .rules-form select, .rules-form textarea {
+    width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 4px; padding: 4px 8px; font-size: 0.73rem; font-family: var(--font-mono);
+  }
+  .rules-form textarea { min-height: 60px; resize: vertical; }
+  .rules-form input:focus, .rules-form select:focus, .rules-form textarea:focus {
+    outline: none; border-color: var(--blue);
+  }
+  .rules-form .form-row { display: flex; gap: 6px; }
+  .rules-form .form-row > * { flex: 1; }
+  .rules-form .add-btn {
+    width: 100%; margin-top: 10px; padding: 6px; background: var(--blue); color: #fff;
+    border: none; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-family: var(--font-sans);
+    font-weight: 600;
+  }
+  .rules-form .add-btn:hover { opacity: 0.9; }
+  .mock-fields { display: none; }
+  .mock-fields.visible { display: block; }
+
+  /* ── Top Bar Toggle Group ──────────────────── */
+  .top-bar .drawer-toggles {
+    display: flex; gap: 2px; margin-left: 8px;
+  }
+  .top-bar .drawer-toggles .tbtn {
+    background: transparent; color: var(--text-dim); border: 1px solid var(--border);
+    padding: 4px 8px; cursor: pointer; font-size: 0.8rem; line-height: 1;
+  }
+  .top-bar .drawer-toggles .tbtn:first-child { border-radius: 4px 0 0 4px; }
+  .top-bar .drawer-toggles .tbtn:last-child { border-radius: 0 4px 4px 0; }
+  .top-bar .drawer-toggles .tbtn:not(:first-child):not(:last-child) { border-radius: 0; }
+  .top-bar .drawer-toggles .tbtn:hover { color: var(--text); border-color: var(--text-dim); }
+  .top-bar .drawer-toggles .tbtn.active { color: var(--blue); border-color: var(--blue); }
+
+  /* ── Rule Badge ────────────────────────────── */
+  .rule-badge {
+    font-size: 0.6rem; font-weight: bold; padding: 1px 4px; border-radius: 3px;
+    margin-left: 4px; text-transform: uppercase;
+  }
+  .rule-badge-blocked { color: var(--red); background: #f8514915; }
+  .rule-badge-mocked { color: var(--yellow); background: #d2992215; }
+
+  /* ── Context Menu ──────────────────────────── */
+  .ctx-menu {
+    position: fixed; z-index: 100; background: var(--bg-alt); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 0; min-width: 180px; box-shadow: 0 4px 12px #0008;
+    font-size: 0.75rem; font-family: var(--font-sans); display: none;
+  }
+  .ctx-menu.visible { display: block; }
+  .ctx-menu-item {
+    padding: 6px 12px; cursor: pointer; color: var(--text);
+  }
+  .ctx-menu-item:hover { background: #1c2128; }
 </style>
 </head>
 <body>
@@ -195,6 +290,11 @@
   <input type="text" id="filterSearch" placeholder="Search path, host...">
   <span class="counter" id="counter">0 / 0</span>
   <button class="btn" id="clearBtn">Clear</button>
+  <div class="drawer-toggles">
+    <button class="tbtn" id="toggleRules" title="Rules">&#9881;</button>
+    <button class="tbtn" id="toggleDetail" title="Detail">&#9776;</button>
+    <button class="tbtn" id="toggleLogs" title="Logs">&#9654;</button>
+  </div>
 </div>
 
 <!-- ── Request Table ──────────────────────────── -->
@@ -215,6 +315,52 @@
     <tbody id="tableBody"></tbody>
   </table>
   <div class="empty-state" id="emptyState">Waiting for requests...</div>
+</div>
+
+<!-- ── Rules Drawer ──────────────────────────── -->
+<div class="rules-drawer" id="rulesDrawer">
+  <div class="rules-header">
+    Rules
+    <button class="close-btn" id="rulesClose">&times;</button>
+  </div>
+  <div class="rules-list" id="rulesList"></div>
+  <div class="rules-form" id="rulesForm">
+    <div class="form-label">Host</div>
+    <input type="text" id="ruleHost" placeholder="api.example.com" list="hostSuggestions">
+    <datalist id="hostSuggestions"></datalist>
+    <div class="form-row">
+      <div>
+        <div class="form-label">Method</div>
+        <select id="ruleMethod">
+          <option value="*">*</option>
+          <option>GET</option><option>POST</option><option>PUT</option>
+          <option>DELETE</option><option>PATCH</option>
+        </select>
+      </div>
+      <div>
+        <div class="form-label">Path</div>
+        <input type="text" id="rulePath" placeholder="*" value="*">
+      </div>
+    </div>
+    <div class="form-label">Action</div>
+    <select id="ruleAction">
+      <option value="block">Block</option>
+      <option value="mock">Mock</option>
+    </select>
+    <div class="mock-fields" id="mockFields">
+      <div class="form-row">
+        <div>
+          <div class="form-label">Status</div>
+          <input type="number" id="mockStatus" value="200">
+        </div>
+      </div>
+      <div class="form-label">Body (JSON)</div>
+      <textarea id="mockBody">{}</textarea>
+      <div class="form-label">Headers (JSON)</div>
+      <textarea id="mockHeaders">{}</textarea>
+    </div>
+    <button class="add-btn" id="addRuleBtn">Add Rule</button>
+  </div>
 </div>
 
 <!-- ── Detail Drawer ──────────────────────────── -->
@@ -251,6 +397,13 @@
   <div class="log-content" id="logContent"></div>
 </div>
 
+<!-- ── Context Menu ──────────────────────────── -->
+<div class="ctx-menu" id="ctxMenu">
+  <div class="ctx-menu-item" id="ctxBlockHost">Block <span id="ctxHostLabel"></span></div>
+  <div class="ctx-menu-item" id="ctxBlockRoute">Block this route</div>
+  <div class="ctx-menu-item" id="ctxMockRequest">Mock this request</div>
+</div>
+
 <script>
 // ── State ─────────────────────────────────────────
 const state = {
@@ -266,6 +419,9 @@ const state = {
   newLogCount: 0,
   nextDisplayId: 1,
   detailDrawerState: 'collapsed', // collapsed | medium | wide
+  rules: [],
+  rulesDrawerOpen: false,
+  ctxTarget: null,
 };
 
 const MAX_LOG_LINES = 5000;
@@ -283,6 +439,9 @@ const logNewBadge = $('#logNewBadge');
 const counter = $('#counter');
 const statusDot = $('#statusDot');
 const filterHost = $('#filterHost');
+const rulesDrawer = $('#rulesDrawer');
+const rulesList = $('#rulesList');
+const ctxMenu = $('#ctxMenu');
 
 // ── Utilities ─────────────────────────────────────
 function escHtml(s) {
@@ -315,6 +474,20 @@ function statusClass(code) {
 
 function fmtTime(ts) {
   try { return new Date(ts).toLocaleTimeString(); } catch { return ''; }
+}
+
+// ── Rules API ─────────────────────────────────
+async function apiAddRule(data) {
+  const res = await fetch('/api/rules', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
+async function apiDeleteRule(id) {
+  await fetch(`/api/rules/${id}`, { method: 'DELETE' });
 }
 
 // ── Filtering ─────────────────────────────────────
@@ -381,7 +554,7 @@ function renderTable() {
       <td><span class="method-badge method-${escHtml(r.method)}">${escHtml(r.method)}</span></td>
       <td>${escHtml(r.host)}</td>
       <td title="${escHtml(r.url)}">${escHtml(r.url)}</td>
-      <td class="${statusClass(r.statusCode)}">${r.statusCode}</td>
+      <td class="${statusClass(r.statusCode)}">${r.statusCode}${r.ruleAction === 'blocked' ? ' <span class="rule-badge rule-badge-blocked">BLK</span>' : r.ruleAction === 'mocked' ? ' <span class="rule-badge rule-badge-mocked">MCK</span>' : ''}</td>
       <td class="col-dur">${r.durationMs != null ? r.durationMs : '-'}</td>
       <td class="col-ts">${fmtTime(r.timestamp)}</td>
     </tr>`;
@@ -439,6 +612,29 @@ function renderDetail() {
     content += `<pre>${highlightJson(r.resBody)}</pre>`;
   }
   detailContent.innerHTML = content;
+  updateToggleButtons();
+}
+
+function renderRules() {
+  let html = '';
+  for (const r of state.rules) {
+    const actionCls = r.action === 'block' ? 'rule-action-block' : 'rule-action-mock';
+    const route = `${r.method === '*' ? 'ALL' : r.method} ${r.path}`;
+    let summary = '';
+    if (r.action === 'mock' && r.mockConfig) {
+      const bodyPreview = (r.mockConfig.body || '{}').slice(0, 40);
+      summary = `<div class="rule-mock-summary">${r.mockConfig.status || 200} — ${escHtml(bodyPreview)}</div>`;
+    }
+    html += `<div class="rule-item">
+      <span class="rule-action ${actionCls}">${escHtml(r.action)}</span>
+      <span class="rule-host">${escHtml(r.host)}</span>
+      <span class="rule-route">${escHtml(route)}</span>
+      <button class="rule-delete" data-rule-id="${escHtml(r.id)}">&times;</button>
+      ${summary}
+    </div>`;
+  }
+  if (!html) html = '<div style="color:var(--text-dim);font-size:0.73rem;padding:8px 0">No rules defined</div>';
+  rulesList.innerHTML = html;
 }
 
 // ── Render: Log Drawer ────────────────────────────
@@ -492,6 +688,15 @@ function updateLogDrawer() {
 
   updateLogBadge();
   if (state.logDrawerState !== 'collapsed') renderLogs();
+  updateToggleButtons();
+}
+
+function updateToggleButtons() {
+  $('#toggleRules').classList.toggle('active', state.rulesDrawerOpen);
+  $('#toggleDetail').classList.toggle('active', state.detailDrawerState !== 'collapsed');
+  const logOpen = state.logDrawerState !== 'collapsed';
+  $('#toggleLogs').classList.toggle('active', logOpen);
+  $('#toggleLogs').innerHTML = logOpen ? '&#9660;' : '&#9654;';
 }
 
 // ── SSE Connection ────────────────────────────────
@@ -513,6 +718,12 @@ es.addEventListener('request', (e) => {
   }
 
   scheduleRender();
+});
+
+es.addEventListener('rules-change', (e) => {
+  state.rules = JSON.parse(e.data);
+  renderRules();
+  updateToggleButtons();
 });
 
 es.addEventListener('app-log', (e) => {
@@ -622,6 +833,134 @@ $('#logToggleGroup').addEventListener('click', (e) => {
 
 // Initial render
 updateLogDrawer();
+updateToggleButtons();
+
+// ── Rules Drawer ──────────────────────────────
+function toggleRulesDrawer(open) {
+  if (open === undefined) open = !state.rulesDrawerOpen;
+  state.rulesDrawerOpen = open;
+  rulesDrawer.classList.toggle('open', open);
+  updateToggleButtons();
+  if (open) {
+    const dl = $('#hostSuggestions');
+    dl.innerHTML = '';
+    for (const h of state.knownHosts) {
+      const opt = document.createElement('option');
+      opt.value = h;
+      dl.appendChild(opt);
+    }
+  }
+}
+
+$('#rulesClose').addEventListener('click', () => toggleRulesDrawer(false));
+
+$('#ruleAction').addEventListener('change', (e) => {
+  $('#mockFields').classList.toggle('visible', e.target.value === 'mock');
+});
+
+$('#addRuleBtn').addEventListener('click', async () => {
+  const host = $('#ruleHost').value.trim();
+  if (!host) return;
+  const data = {
+    host,
+    method: $('#ruleMethod').value,
+    path: $('#rulePath').value.trim() || '*',
+    action: $('#ruleAction').value,
+  };
+  if (data.action === 'mock') {
+    data.mockConfig = {
+      status: parseInt($('#mockStatus').value, 10) || 200,
+      body: $('#mockBody').value || '{}',
+    };
+    try {
+      const hdrs = JSON.parse($('#mockHeaders').value || '{}');
+      data.mockConfig.headers = hdrs;
+    } catch { data.mockConfig.headers = {}; }
+  }
+  await apiAddRule(data);
+  $('#ruleHost').value = '';
+  $('#ruleMethod').value = '*';
+  $('#rulePath').value = '*';
+  $('#ruleAction').value = 'block';
+  $('#mockFields').classList.remove('visible');
+  $('#mockStatus').value = '200';
+  $('#mockBody').value = '{}';
+  $('#mockHeaders').value = '{}';
+});
+
+rulesList.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.rule-delete');
+  if (!btn) return;
+  await apiDeleteRule(btn.dataset.ruleId);
+});
+
+// ── Context Menu ──────────────────────────────
+tableBody.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  const row = e.target.closest('tr');
+  if (!row) return;
+  const id = parseInt(row.dataset.id, 10);
+  const r = state.requests.find(x => x.displayId === id);
+  if (!r) return;
+  state.ctxTarget = r;
+  $('#ctxHostLabel').textContent = r.host;
+  ctxMenu.style.left = e.clientX + 'px';
+  ctxMenu.style.top = e.clientY + 'px';
+  ctxMenu.classList.add('visible');
+});
+
+document.addEventListener('click', () => ctxMenu.classList.remove('visible'));
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') ctxMenu.classList.remove('visible'); });
+
+$('#ctxBlockHost').addEventListener('click', async () => {
+  if (!state.ctxTarget) return;
+  await apiAddRule({ host: state.ctxTarget.host, method: '*', path: '*', action: 'block' });
+  toggleRulesDrawer(true);
+});
+
+$('#ctxBlockRoute').addEventListener('click', async () => {
+  if (!state.ctxTarget) return;
+  const r = state.ctxTarget;
+  await apiAddRule({ host: r.host, method: r.method, path: r.url, action: 'block' });
+  toggleRulesDrawer(true);
+});
+
+$('#ctxMockRequest').addEventListener('click', () => {
+  if (!state.ctxTarget) return;
+  const r = state.ctxTarget;
+  toggleRulesDrawer(true);
+  $('#ruleHost').value = r.host;
+  $('#ruleMethod').value = r.method;
+  $('#rulePath').value = r.url;
+  $('#ruleAction').value = 'mock';
+  $('#mockFields').classList.add('visible');
+});
+
+// ── Top Bar Toggles ───────────────────────────
+$('#toggleRules').addEventListener('click', () => toggleRulesDrawer());
+
+$('#toggleDetail').addEventListener('click', () => {
+  if (state.detailDrawerState !== 'collapsed') {
+    state.detailDrawerState = 'collapsed';
+    state.selectedId = null;
+    detailDrawer.classList.remove('open', 'wide');
+    scheduleRender();
+  } else if (state.selectedId) {
+    state.detailDrawerState = 'medium';
+    renderDetail();
+  }
+  updateToggleButtons();
+});
+
+$('#toggleLogs').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const states = ['collapsed', 'medium', 'expanded'];
+  const idx = states.indexOf(state.logDrawerState);
+  state.logDrawerState = states[(idx + 1) % states.length];
+  if (state.logDrawerState !== 'collapsed') state.newLogCount = 0;
+  updateLogDrawer();
+  updateToggleButtons();
+});
 </script>
 </body>
 </html>

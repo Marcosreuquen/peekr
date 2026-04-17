@@ -99,6 +99,25 @@ Examples:
     }
     throw err;
   }
+} else if (subcommand === 'logs') {
+  const args = process.argv.slice(3);
+  if (args.includes('-h') || args.includes('--help')) {
+    console.log(`
+peekr logs — Follow app logs from peekr-managed child processes
+
+Usage:
+  peekr logs [options]
+
+Options:
+  --clear    Clear the log file and exit
+  -h, --help Show this help
+
+The log file is located at .peekr/app.log in the current directory.
+`);
+    process.exit(0);
+  }
+  const { logsCommand } = await import('../lib/logs-command.mjs');
+  logsCommand(args);
 } else {
   /**
    * peekr — HTTP Capture Proxy
@@ -144,6 +163,9 @@ Subcommands:
         Incoming: send requests to the reverse proxy port (not your app directly).
         Outgoing: only captured if app is started via peekr ui -- <command>.
         Run: peekr ui --help
+
+  logs  Follow app logs from peekr-managed child processes.
+        Run: peekr logs --help
 
 Proxy mode options (backward compat):
   --target <host>   Upstream HTTPS hostname to forward requests to

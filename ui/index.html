@@ -6,76 +6,593 @@
 <title>peekr dashboard</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: monospace; background: #0d1117; color: #c9d1d9; padding: 1rem; }
-  h1 { color: #58a6ff; margin-bottom: 1rem; font-size: 1.2rem; }
-  #status { color: #3fb950; font-size: 0.8rem; margin-bottom: 1rem; }
-  #log { display: flex; flex-direction: column; gap: 0.5rem; }
-  .card { background: #161b22; border: 1px solid #30363d; border-radius: 6px; overflow: hidden; }
-  .card-header { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.75rem; cursor: pointer; user-select: none; }
-  .direction { font-size: 0.7rem; padding: 2px 6px; border-radius: 3px; font-weight: bold; }
-  .direction.IN  { background: #1f6feb; color: #fff; }
-  .direction.OUT { background: #388bfd22; color: #58a6ff; border: 1px solid #388bfd; }
-  .method { font-weight: bold; color: #d2a8ff; min-width: 50px; }
-  .host { color: #79c0ff; }
-  .path { color: #c9d1d9; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .status { font-weight: bold; }
-  .status.ok  { color: #3fb950; }
-  .status.err { color: #f85149; }
-  .ts { color: #6e7681; font-size: 0.75rem; margin-left: auto; white-space: nowrap; }
-  .card-body { padding: 0.75rem; border-top: 1px solid #30363d; display: none; }
-  .card-body.open { display: block; }
-  .card-body pre { white-space: pre-wrap; word-break: break-all; font-size: 0.8rem; color: #e6edf3; }
-  .label { color: #6e7681; font-size: 0.75rem; margin-top: 0.5rem; margin-bottom: 0.25rem; }
+  :root {
+    --bg: #0d1117; --bg-alt: #161b22; --border: #30363d;
+    --text: #c9d1d9; --text-dim: #6e7681; --text-bright: #e6edf3;
+    --blue: #58a6ff; --green: #3fb950; --yellow: #d29922; --red: #f85149;
+    --purple: #d2a8ff; --cyan: #79c0ff;
+    --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: var(--font-mono); background: var(--bg); color: var(--text);
+    display: grid; grid-template-rows: auto 1fr auto; grid-template-columns: 1fr auto;
+    height: 100vh;
+  }
+
+  /* ── Top Bar ────────────────────────────────── */
+  .top-bar {
+    grid-column: 1 / -1; display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; background: var(--bg-alt); border-bottom: 1px solid var(--border);
+    font-size: 0.8rem; flex-wrap: wrap;
+  }
+  .top-bar .logo { color: var(--blue); font-weight: bold; font-size: 0.9rem; margin-right: 8px; font-family: var(--font-sans); }
+  .top-bar select, .top-bar input {
+    background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 4px; padding: 4px 8px; font-size: 0.75rem; font-family: var(--font-mono);
+  }
+  .top-bar select:focus, .top-bar input:focus { outline: none; border-color: var(--blue); }
+  .top-bar input { width: 180px; }
+  .top-bar .counter { color: var(--text-dim); font-size: 0.75rem; margin-left: auto; }
+  .top-bar .btn {
+    background: transparent; color: var(--text-dim); border: 1px solid var(--border);
+    border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 0.75rem; font-family: var(--font-sans);
+  }
+  .top-bar .btn:hover { color: var(--text); border-color: var(--text-dim); }
+  .top-bar .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); display: inline-block; }
+  .top-bar .status-dot.connected { background: var(--green); }
+
+  /* ── Request Table ──────────────────────────── */
+  .table-wrap {
+    grid-column: 1; grid-row: 2; overflow: auto; background: var(--bg);
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+  thead { position: sticky; top: 0; z-index: 2; }
+  th {
+    background: var(--bg-alt); color: var(--text-dim); text-align: left;
+    padding: 6px 10px; border-bottom: 1px solid var(--border); cursor: pointer;
+    user-select: none; white-space: nowrap; font-weight: 600; font-family: var(--font-sans);
+  }
+  th:hover { color: var(--text); }
+  th .sort-arrow { font-size: 0.6rem; margin-left: 4px; }
+  td {
+    padding: 5px 10px; border-bottom: 1px solid #21262d; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; max-width: 300px;
+  }
+  tr { cursor: pointer; }
+  tr:hover td { background: #1c2128; }
+  tr.selected td { background: #1f2937; border-left: 2px solid var(--blue); }
+  .method-badge {
+    font-weight: bold; padding: 1px 6px; border-radius: 3px; font-size: 0.7rem;
+    display: inline-block; min-width: 42px; text-align: center;
+  }
+  .method-GET { color: var(--green); background: #3fb95015; }
+  .method-POST { color: var(--blue); background: #58a6ff15; }
+  .method-PUT { color: var(--yellow); background: #d2992215; }
+  .method-DELETE { color: var(--red); background: #f8514915; }
+  .method-PATCH { color: var(--purple); background: #d2a8ff15; }
+  .status-2 { color: var(--green); }
+  .status-3 { color: var(--yellow); }
+  .status-4 { color: var(--red); }
+  .status-5 { color: var(--red); font-weight: bold; }
+  .col-id { width: 50px; color: var(--text-dim); }
+  .col-dur { width: 70px; text-align: right; }
+  .col-ts { width: 90px; color: var(--text-dim); }
+  .col-status { width: 55px; }
+  .col-method { width: 70px; }
+  .dir-badge { font-size: 0.65rem; padding: 1px 5px; border-radius: 3px; font-weight: bold; }
+  .dir-IN { background: #1f6feb; color: #fff; }
+  .dir-OUT { background: transparent; color: var(--blue); border: 1px solid #388bfd55; }
+  .empty-state { text-align: center; color: var(--text-dim); padding: 60px 20px; font-size: 0.85rem; }
+
+  /* ── Detail Drawer ──────────────────────────── */
+  .detail-drawer {
+    grid-column: 2; grid-row: 2; width: 0; overflow: hidden;
+    transition: width 0.2s ease; background: var(--bg-alt); border-left: 1px solid var(--border);
+  }
+  .detail-drawer.open { width: 460px; overflow-y: auto; }
+  .detail-header {
+    display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+    border-bottom: 1px solid var(--border); flex-wrap: wrap;
+  }
+  .detail-header .close-btn {
+    margin-left: auto; background: none; border: none; color: var(--text-dim);
+    cursor: pointer; font-size: 1.1rem; padding: 2px 6px;
+  }
+  .detail-header .close-btn:hover { color: var(--text); }
+  .detail-url { font-size: 0.75rem; color: var(--text-dim); padding: 6px 12px; word-break: break-all; border-bottom: 1px solid var(--border); }
+  .detail-meta { display: flex; gap: 16px; padding: 6px 12px; font-size: 0.72rem; color: var(--text-dim); border-bottom: 1px solid var(--border); }
+  .detail-tabs { display: flex; border-bottom: 1px solid var(--border); }
+  .detail-tab {
+    padding: 8px 16px; cursor: pointer; font-size: 0.78rem; color: var(--text-dim);
+    border-bottom: 2px solid transparent; font-family: var(--font-sans);
+  }
+  .detail-tab:hover { color: var(--text); }
+  .detail-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+  .detail-content { padding: 12px; font-size: 0.75rem; }
+  .detail-content pre {
+    white-space: pre-wrap; word-break: break-all; line-height: 1.5;
+    background: var(--bg); padding: 10px; border-radius: 4px; border: 1px solid var(--border);
+    max-height: 400px; overflow: auto;
+  }
+  .detail-content .section-label {
+    font-family: var(--font-sans); font-weight: 600; color: var(--text-dim);
+    font-size: 0.72rem; margin: 12px 0 6px; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .detail-content .section-label:first-child { margin-top: 0; }
+  .header-row { display: flex; gap: 4px; padding: 2px 0; font-size: 0.73rem; }
+  .header-key { color: var(--cyan); min-width: 160px; }
+  .header-val { color: var(--text); word-break: break-all; }
+
+  /* JSON highlighting */
+  .json-key { color: var(--cyan); }
+  .json-str { color: var(--green); }
+  .json-num { color: var(--purple); }
+  .json-bool { color: var(--yellow); }
+  .json-null { color: var(--text-dim); }
+
+  /* ── Log Drawer ──────────────────────────────── */
+  .log-drawer {
+    grid-column: 1 / -1; grid-row: 3;
+    background: var(--bg-alt); border-top: 1px solid var(--border);
+    transition: height 0.2s ease; overflow: hidden;
+  }
+  .log-drawer.collapsed { height: 32px; }
+  .log-drawer.medium { height: 200px; }
+  .log-drawer.expanded { height: 50vh; }
+  .log-title-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 12px; cursor: pointer; user-select: none;
+    border-bottom: 1px solid var(--border); height: 32px;
+    font-family: var(--font-sans); font-size: 0.78rem;
+  }
+  .log-title-bar:hover { background: #1c2128; }
+  .log-title-bar .label { font-weight: 600; color: var(--text-dim); }
+  .log-title-bar .new-badge {
+    background: var(--blue); color: #fff; font-size: 0.65rem;
+    padding: 1px 6px; border-radius: 8px; display: none;
+  }
+  .log-title-bar .toggle-group { margin-left: auto; display: flex; gap: 4px; }
+  .log-title-bar .toggle-btn {
+    background: transparent; color: var(--text-dim); border: 1px solid var(--border);
+    border-radius: 3px; padding: 1px 8px; cursor: pointer; font-size: 0.68rem; font-family: var(--font-sans);
+  }
+  .log-title-bar .toggle-btn:hover { color: var(--text); }
+  .log-title-bar .toggle-btn.active { color: var(--blue); border-color: var(--blue); }
+  .log-title-bar .state-icon { color: var(--text-dim); font-size: 0.7rem; }
+  .log-content {
+    height: calc(100% - 32px); overflow-y: auto; padding: 4px 12px;
+    font-size: 0.73rem; line-height: 1.5;
+  }
+  .log-content .log-line { white-space: pre-wrap; word-break: break-all; }
+  .log-content .log-line.stderr { color: #f0883e; }
 </style>
 </head>
 <body>
-<h1>peekr dashboard</h1>
-<div id="status">connecting...</div>
-<div id="log"></div>
+
+<!-- ── Top Bar ────────────────────────────────── -->
+<div class="top-bar">
+  <span class="logo">peekr</span>
+  <span class="status-dot" id="statusDot"></span>
+  <select id="filterMethod">
+    <option value="">Method</option>
+    <option>GET</option><option>POST</option><option>PUT</option>
+    <option>DELETE</option><option>PATCH</option><option>OPTIONS</option><option>HEAD</option>
+  </select>
+  <select id="filterStatus">
+    <option value="">Status</option>
+    <option value="2">2xx</option><option value="3">3xx</option>
+    <option value="4">4xx</option><option value="5">5xx</option>
+  </select>
+  <select id="filterHost"><option value="">Host</option></select>
+  <input type="text" id="filterSearch" placeholder="Search path, host...">
+  <span class="counter" id="counter">0 / 0</span>
+  <button class="btn" id="clearBtn">Clear</button>
+</div>
+
+<!-- ── Request Table ──────────────────────────── -->
+<div class="table-wrap" id="tableWrap">
+  <table>
+    <thead>
+      <tr>
+        <th class="col-id" data-sort="id"># <span class="sort-arrow"></span></th>
+        <th data-sort="direction">Dir <span class="sort-arrow"></span></th>
+        <th class="col-method" data-sort="method">Method <span class="sort-arrow"></span></th>
+        <th data-sort="host">Host <span class="sort-arrow"></span></th>
+        <th data-sort="url">Path <span class="sort-arrow"></span></th>
+        <th class="col-status" data-sort="statusCode">Status <span class="sort-arrow"></span></th>
+        <th class="col-dur" data-sort="durationMs">ms <span class="sort-arrow"></span></th>
+        <th class="col-ts" data-sort="timestamp">Time <span class="sort-arrow"></span></th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+  <div class="empty-state" id="emptyState">Waiting for requests...</div>
+</div>
+
+<!-- ── Detail Drawer ──────────────────────────── -->
+<div class="detail-drawer" id="detailDrawer">
+  <div class="detail-header">
+    <span class="method-badge" id="detailMethod"></span>
+    <span id="detailStatus"></span>
+    <button class="close-btn" id="detailClose">&times;</button>
+  </div>
+  <div class="detail-url" id="detailUrl"></div>
+  <div class="detail-meta" id="detailMeta"></div>
+  <div class="detail-tabs">
+    <div class="detail-tab active" data-tab="headers">Headers</div>
+    <div class="detail-tab" data-tab="payload">Payload</div>
+    <div class="detail-tab" data-tab="response">Response</div>
+  </div>
+  <div class="detail-content" id="detailContent"></div>
+</div>
+
+<!-- ── Log Drawer ──────────────────────────────── -->
+<div class="log-drawer collapsed" id="logDrawer">
+  <div class="log-title-bar" id="logTitleBar">
+    <span class="state-icon" id="logStateIcon">&#9654;</span>
+    <span class="label">App Logs</span>
+    <span class="new-badge" id="logNewBadge">0 new</span>
+    <div class="toggle-group" id="logToggleGroup">
+      <button class="toggle-btn active" data-filter="raw">Raw</button>
+      <button class="toggle-btn" data-filter="info">INFO</button>
+      <button class="toggle-btn" data-filter="warn">WARN</button>
+      <button class="toggle-btn" data-filter="error">ERROR</button>
+    </div>
+  </div>
+  <div class="log-content" id="logContent"></div>
+</div>
+
 <script>
-  const log = document.getElementById('log');
-  const status = document.getElementById('status');
-  const es = new EventSource('/events');
+// ── State ─────────────────────────────────────────
+const state = {
+  requests: [],
+  filters: { method: '', status: '', host: '', search: '' },
+  sortBy: 'id', sortDir: 'desc',
+  selectedId: null,
+  activeTab: 'headers',
+  logLines: [],
+  logDrawerState: 'collapsed',
+  logFilter: 'raw',
+  knownHosts: new Set(),
+  newLogCount: 0,
+};
 
-  es.onopen = () => { status.textContent = 'connected'; status.style.color = '#3fb950'; };
-  es.onerror = () => { status.textContent = 'disconnected'; status.style.color = '#f85149'; };
+const MAX_LOG_LINES = 5000;
 
-  es.onmessage = e => {
-    const r = JSON.parse(e.data);
-    const card = document.createElement('div');
-    card.className = 'card';
+// ── DOM refs ──────────────────────────────────────
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
+const tableBody = $('#tableBody');
+const emptyState = $('#emptyState');
+const detailDrawer = $('#detailDrawer');
+const detailContent = $('#detailContent');
+const logDrawer = $('#logDrawer');
+const logContent = $('#logContent');
+const logNewBadge = $('#logNewBadge');
+const counter = $('#counter');
+const statusDot = $('#statusDot');
+const filterHost = $('#filterHost');
 
-    const statusClass = r.statusCode < 400 ? 'ok' : 'err';
-    card.innerHTML = `
-      <div class="card-header">
-        <span class="direction ${r.direction}">${escHtml(r.direction)}</span>
-        <span class="method">${escHtml(r.method)}</span>
-        <span class="host">${escHtml(r.host)}</span>
-        <span class="path">${escHtml(r.url)}</span>
-        <span class="status ${statusClass}">${r.statusCode}</span>
-        <span class="ts">${new Date(r.timestamp).toLocaleTimeString()}</span>
-      </div>
-      <div class="card-body">
-        <div class="label">Request Body</div>
-        <pre>${escHtml(pretty(r.reqBody))}</pre>
-        <div class="label">Response Body</div>
-        <pre>${escHtml(pretty(r.resBody))}</pre>
-      </div>`;
+// ── Utilities ─────────────────────────────────────
+function escHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
-    card.querySelector('.card-header').addEventListener('click', () => {
-      card.querySelector('.card-body').classList.toggle('open');
-    });
-
-    log.prepend(card);
-  };
-
-  function pretty(s) {
-    try { return JSON.stringify(JSON.parse(s), null, 2); } catch { return s || ''; }
+function highlightJson(str) {
+  if (!str || !str.trim()) return '<span style="color:var(--text-dim)">(empty)</span>';
+  try {
+    const obj = JSON.parse(str);
+    const formatted = JSON.stringify(obj, null, 2);
+    return escHtml(formatted)
+      .replace(/"([^"]+)"(?=\s*:)/g, '<span class="json-key">"$1"</span>')
+      .replace(/: "((?:[^"\\]|\\.)*)"/g, ': <span class="json-str">"$1"</span>')
+      .replace(/: (-?\d+\.?\d*(?:[eE][+-]?\d+)?)/g, ': <span class="json-num">$1</span>')
+      .replace(/: (true|false)/g, ': <span class="json-bool">$1</span>')
+      .replace(/: (null)/g, ': <span class="json-null">$1</span>');
+  } catch {
+    return escHtml(str);
   }
-  function escHtml(s) {
-    if (s == null) return '';
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function statusClass(code) {
+  if (code >= 500) return 'status-5';
+  if (code >= 400) return 'status-4';
+  if (code >= 300) return 'status-3';
+  return 'status-2';
+}
+
+function fmtTime(ts) {
+  try { return new Date(ts).toLocaleTimeString(); } catch { return ''; }
+}
+
+// ── Filtering ─────────────────────────────────────
+function matchesFilters(r) {
+  const f = state.filters;
+  if (f.method && r.method !== f.method) return false;
+  if (f.status && !String(r.statusCode).startsWith(f.status)) return false;
+  if (f.host && r.host !== f.host) return false;
+  if (f.search) {
+    const q = f.search.toLowerCase();
+    const hay = `${r.method} ${r.host} ${r.url} ${r.statusCode}`.toLowerCase();
+    if (!hay.includes(q)) return false;
   }
+  return true;
+}
+
+// ── Sorting ───────────────────────────────────────
+function sortRequests(arr) {
+  const key = state.sortBy;
+  const dir = state.sortDir === 'asc' ? 1 : -1;
+  return arr.slice().sort((a, b) => {
+    let va = a[key], vb = b[key];
+    if (typeof va === 'string') va = va.toLowerCase();
+    if (typeof vb === 'string') vb = vb.toLowerCase();
+    if (va < vb) return -1 * dir;
+    if (va > vb) return 1 * dir;
+    return 0;
+  });
+}
+
+// ── Render: Table ─────────────────────────────────
+let renderPending = false;
+function scheduleRender() {
+  if (renderPending) return;
+  renderPending = true;
+  requestAnimationFrame(() => { renderPending = false; renderTable(); });
+}
+
+function renderTable() {
+  const filtered = state.requests.filter(matchesFilters);
+  const sorted = sortRequests(filtered);
+
+  counter.textContent = `${filtered.length} / ${state.requests.length}`;
+  emptyState.style.display = state.requests.length === 0 ? 'block' : 'none';
+
+  // Update sort arrows
+  $$('th[data-sort]').forEach(th => {
+    const arrow = th.querySelector('.sort-arrow');
+    if (th.dataset.sort === state.sortBy) {
+      arrow.textContent = state.sortDir === 'asc' ? ' ▲' : ' ▼';
+    } else {
+      arrow.textContent = '';
+    }
+  });
+
+  let html = '';
+  for (const r of sorted) {
+    const sel = r.id === state.selectedId ? ' selected' : '';
+    const dir = r.direction || 'OUT';
+    html += `<tr class="${sel}" data-id="${r.id}">
+      <td class="col-id">${r.id}</td>
+      <td><span class="dir-badge dir-${escHtml(dir)}">${escHtml(dir)}</span></td>
+      <td><span class="method-badge method-${escHtml(r.method)}">${escHtml(r.method)}</span></td>
+      <td>${escHtml(r.host)}</td>
+      <td title="${escHtml(r.url)}">${escHtml(r.url)}</td>
+      <td class="${statusClass(r.statusCode)}">${r.statusCode}</td>
+      <td class="col-dur">${r.durationMs != null ? r.durationMs : '-'}</td>
+      <td class="col-ts">${fmtTime(r.timestamp)}</td>
+    </tr>`;
+  }
+  tableBody.innerHTML = html;
+}
+
+// ── Render: Detail Drawer ─────────────────────────
+function renderDetail() {
+  const r = state.requests.find(x => x.id === state.selectedId);
+  if (!r) { detailDrawer.classList.remove('open'); return; }
+
+  detailDrawer.classList.add('open');
+  const dir = r.direction || 'OUT';
+  $('#detailMethod').className = `method-badge method-${r.method}`;
+  $('#detailMethod').textContent = r.method;
+  $('#detailStatus').className = statusClass(r.statusCode);
+  $('#detailStatus').textContent = r.statusCode;
+  $('#detailUrl').textContent = `${r.host}${r.url}`;
+  $('#detailMeta').innerHTML = `
+    <span>Duration: ${r.durationMs != null ? r.durationMs + 'ms' : 'n/a'}</span>
+    <span>Size: ${r.responseSize != null ? (r.responseSize > 1024 ? (r.responseSize/1024).toFixed(1)+'KB' : r.responseSize+'B') : 'n/a'}</span>
+    <span>Direction: ${escHtml(dir)}</span>
+    <span>${fmtTime(r.timestamp)}</span>
+  `;
+
+  // Update tabs
+  $$('.detail-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === state.activeTab));
+
+  let content = '';
+  if (state.activeTab === 'headers') {
+    content += '<div class="section-label">Request Headers</div>';
+    if (r.reqHeaders && typeof r.reqHeaders === 'object') {
+      for (const [k, v] of Object.entries(r.reqHeaders)) {
+        content += `<div class="header-row"><span class="header-key">${escHtml(k)}</span><span class="header-val">${escHtml(v)}</span></div>`;
+      }
+    } else {
+      content += '<div style="color:var(--text-dim)">(none)</div>';
+    }
+    content += '<div class="section-label" style="margin-top:16px">Response Headers</div>';
+    if (r.resHeaders && typeof r.resHeaders === 'object') {
+      for (const [k, v] of Object.entries(r.resHeaders)) {
+        content += `<div class="header-row"><span class="header-key">${escHtml(k)}</span><span class="header-val">${escHtml(v)}</span></div>`;
+      }
+    } else {
+      content += '<div style="color:var(--text-dim)">(none)</div>';
+    }
+  } else if (state.activeTab === 'payload') {
+    content += '<div class="section-label">Request Body</div>';
+    content += `<pre>${highlightJson(r.reqBody)}</pre>`;
+  } else if (state.activeTab === 'response') {
+    content += '<div class="section-label">Response Body</div>';
+    content += `<pre>${highlightJson(r.resBody)}</pre>`;
+  }
+  detailContent.innerHTML = content;
+}
+
+// ── Render: Log Drawer ────────────────────────────
+const LOG_PATTERNS = {
+  info: /\b(INFO|info)\b/,
+  warn: /\b(WARN|warn|WARNING|warning)\b/,
+  error: /\b(ERROR|error|ERR)\b/,
+};
+
+function renderLogs() {
+  let lines = state.logLines;
+  if (state.logFilter !== 'raw') {
+    const pat = LOG_PATTERNS[state.logFilter];
+    if (pat) lines = lines.filter(l => pat.test(l.text));
+  }
+
+  let html = '';
+  for (const l of lines) {
+    const cls = l.stream === 'stderr' ? ' stderr' : '';
+    html += `<div class="log-line${cls}">${escHtml(l.text)}</div>`;
+  }
+  logContent.innerHTML = html;
+  logContent.scrollTop = logContent.scrollHeight;
+}
+
+function updateLogBadge() {
+  if (state.logDrawerState === 'collapsed' && state.newLogCount > 0) {
+    logNewBadge.style.display = 'inline';
+    logNewBadge.textContent = `${state.newLogCount} new`;
+  } else {
+    logNewBadge.style.display = 'none';
+  }
+}
+
+function updateLogDrawer() {
+  logDrawer.className = `log-drawer ${state.logDrawerState}`;
+  const icon = $('#logStateIcon');
+  if (state.logDrawerState === 'collapsed') icon.innerHTML = '&#9654;';
+  else if (state.logDrawerState === 'medium') icon.innerHTML = '&#9660;';
+  else icon.innerHTML = '&#9650;';
+
+  // Update toggle buttons
+  $$('#logToggleGroup .toggle-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.filter === state.logFilter);
+  });
+
+  updateLogBadge();
+  if (state.logDrawerState !== 'collapsed') renderLogs();
+}
+
+// ── SSE Connection ────────────────────────────────
+const es = new EventSource('/events');
+es.onopen = () => { statusDot.classList.add('connected'); };
+es.onerror = () => { statusDot.classList.remove('connected'); };
+
+es.addEventListener('request', (e) => {
+  const r = JSON.parse(e.data);
+  state.requests.push(r);
+
+  // Track hosts for filter
+  if (r.host && !state.knownHosts.has(r.host)) {
+    state.knownHosts.add(r.host);
+    const opt = document.createElement('option');
+    opt.value = r.host; opt.textContent = r.host;
+    filterHost.appendChild(opt);
+  }
+
+  scheduleRender();
+});
+
+es.addEventListener('app-log', (e) => {
+  const entry = JSON.parse(e.data);
+  state.logLines.push(entry);
+  if (state.logLines.length > MAX_LOG_LINES) state.logLines.shift();
+
+  if (state.logDrawerState === 'collapsed') {
+    state.newLogCount++;
+    updateLogBadge();
+  } else {
+    renderLogs();
+  }
+});
+
+// ── Event Handlers ────────────────────────────────
+
+// Sort
+$$('th[data-sort]').forEach(th => {
+  th.addEventListener('click', () => {
+    const key = th.dataset.sort;
+    if (state.sortBy === key) {
+      state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      state.sortBy = key;
+      state.sortDir = key === 'id' ? 'desc' : 'asc';
+    }
+    scheduleRender();
+  });
+});
+
+// Filters
+$('#filterMethod').addEventListener('change', (e) => { state.filters.method = e.target.value; scheduleRender(); });
+$('#filterStatus').addEventListener('change', (e) => { state.filters.status = e.target.value; scheduleRender(); });
+$('#filterHost').addEventListener('change', (e) => { state.filters.host = e.target.value; scheduleRender(); });
+$('#filterSearch').addEventListener('input', (e) => { state.filters.search = e.target.value; scheduleRender(); });
+
+// Clear
+$('#clearBtn').addEventListener('click', () => {
+  state.requests.length = 0;
+  state.selectedId = null;
+  state.knownHosts.clear();
+  filterHost.innerHTML = '<option value="">Host</option>';
+  detailDrawer.classList.remove('open');
+  scheduleRender();
+});
+
+// Row click → detail
+tableBody.addEventListener('click', (e) => {
+  const row = e.target.closest('tr');
+  if (!row) return;
+  const id = parseInt(row.dataset.id, 10);
+  state.selectedId = id;
+  state.activeTab = 'headers';
+  scheduleRender();
+  renderDetail();
+});
+
+// Detail close
+$('#detailClose').addEventListener('click', () => {
+  state.selectedId = null;
+  detailDrawer.classList.remove('open');
+  scheduleRender();
+});
+
+// Detail tabs
+$$('.detail-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    state.activeTab = tab.dataset.tab;
+    renderDetail();
+  });
+});
+
+// Log drawer toggle
+$('#logTitleBar').addEventListener('click', (e) => {
+  // Don't toggle if clicking filter buttons
+  if (e.target.closest('.toggle-btn')) return;
+
+  const states = ['collapsed', 'medium', 'expanded'];
+  const idx = states.indexOf(state.logDrawerState);
+  state.logDrawerState = states[(idx + 1) % states.length];
+  if (state.logDrawerState !== 'collapsed') {
+    state.newLogCount = 0;
+  }
+  updateLogDrawer();
+});
+
+// Log filter buttons
+$('#logToggleGroup').addEventListener('click', (e) => {
+  const btn = e.target.closest('.toggle-btn');
+  if (!btn) return;
+  e.stopPropagation();
+  state.logFilter = btn.dataset.filter;
+  updateLogDrawer();
+});
+
+// Initial render
+updateLogDrawer();
 </script>
 </body>
 </html>

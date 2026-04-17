@@ -92,6 +92,7 @@
     transition: width 0.2s ease; background: var(--bg-alt); border-left: 1px solid var(--border);
   }
   .detail-drawer.open { width: 460px; overflow-y: auto; }
+  .detail-drawer.wide { width: 50vw; overflow-y: auto; }
   .detail-header {
     display: flex; align-items: center; gap: 8px; padding: 10px 12px;
     border-bottom: 1px solid var(--border); flex-wrap: wrap;
@@ -180,6 +181,11 @@
     <option>GET</option><option>POST</option><option>PUT</option>
     <option>DELETE</option><option>PATCH</option><option>OPTIONS</option><option>HEAD</option>
   </select>
+  <select id="filterDir">
+    <option value="">Direction</option>
+    <option value="IN">IN</option>
+    <option value="OUT">OUT</option>
+  </select>
   <select id="filterStatus">
     <option value="">Status</option>
     <option value="2">2xx</option><option value="3">3xx</option>
@@ -196,7 +202,7 @@
   <table>
     <thead>
       <tr>
-        <th class="col-id" data-sort="id"># <span class="sort-arrow"></span></th>
+        <th class="col-id" data-sort="displayId"># <span class="sort-arrow"></span></th>
         <th data-sort="direction">Dir <span class="sort-arrow"></span></th>
         <th class="col-method" data-sort="method">Method <span class="sort-arrow"></span></th>
         <th data-sort="host">Host <span class="sort-arrow"></span></th>
@@ -216,6 +222,7 @@
   <div class="detail-header">
     <span class="method-badge" id="detailMethod"></span>
     <span id="detailStatus"></span>
+    <button class="close-btn" id="detailExpand" title="Toggle width">&#x21C6;</button>
     <button class="close-btn" id="detailClose">&times;</button>
   </div>
   <div class="detail-url" id="detailUrl"></div>
@@ -248,8 +255,8 @@
 // ── State ─────────────────────────────────────────
 const state = {
   requests: [],
-  filters: { method: '', status: '', host: '', search: '' },
-  sortBy: 'id', sortDir: 'desc',
+  filters: { method: '', status: '', host: '', search: '', dir: '' },
+  sortBy: 'displayId', sortDir: 'desc',
   selectedId: null,
   activeTab: 'headers',
   logLines: [],
@@ -257,6 +264,8 @@ const state = {
   logFilter: 'raw',
   knownHosts: new Set(),
   newLogCount: 0,
+  nextDisplayId: 1,
+  detailDrawerState: 'collapsed', // collapsed | medium | wide
 };
 
 const MAX_LOG_LINES = 5000;
@@ -312,6 +321,7 @@ function fmtTime(ts) {
 function matchesFilters(r) {
   const f = state.filters;
   if (f.method && r.method !== f.method) return false;
+  if (f.dir && (r.direction || 'OUT') !== f.dir) return false;
   if (f.status && !String(r.statusCode).startsWith(f.status)) return false;
   if (f.host && r.host !== f.host) return false;
   if (f.search) {
@@ -363,10 +373,10 @@ function renderTable() {
 
   let html = '';
   for (const r of sorted) {
-    const sel = r.id === state.selectedId ? ' selected' : '';
+    const sel = r.displayId === state.selectedId ? ' selected' : '';
     const dir = r.direction || 'OUT';
-    html += `<tr class="${sel}" data-id="${r.id}">
-      <td class="col-id">${r.id}</td>
+    html += `<tr class="${sel}" data-id="${r.displayId}">
+      <td class="col-id">${r.displayId}</td>
       <td><span class="dir-badge dir-${escHtml(dir)}">${escHtml(dir)}</span></td>
       <td><span class="method-badge method-${escHtml(r.method)}">${escHtml(r.method)}</span></td>
       <td>${escHtml(r.host)}</td>
@@ -381,10 +391,12 @@ function renderTable() {
 
 // ── Render: Detail Drawer ─────────────────────────
 function renderDetail() {
-  const r = state.requests.find(x => x.id === state.selectedId);
-  if (!r) { detailDrawer.classList.remove('open'); return; }
+  const r = state.requests.find(x => x.displayId === state.selectedId);
+  if (!r) { detailDrawer.classList.remove('open', 'wide'); return; }
 
-  detailDrawer.classList.add('open');
+  detailDrawer.classList.remove('open', 'wide');
+  if (state.detailDrawerState === 'medium') detailDrawer.classList.add('open');
+  else if (state.detailDrawerState === 'wide') detailDrawer.classList.add('wide');
   const dir = r.direction || 'OUT';
   $('#detailMethod').className = `method-badge method-${r.method}`;
   $('#detailMethod').textContent = r.method;
@@ -431,16 +443,21 @@ function renderDetail() {
 
 // ── Render: Log Drawer ────────────────────────────
 const LOG_PATTERNS = {
-  info: /\b(INFO|info)\b/,
-  warn: /\b(WARN|warn|WARNING|warning)\b/,
-  error: /\b(ERROR|error|ERR)\b/,
+  info: /\b(INFO|info)\b/i,
+  warn: /\b(WARN|warn|WARNING|warning)\b/i,
+  error: /\b(ERROR|error|ERR)\b/i,
 };
+
+// Strip ANSI escape codes for matching purposes
+function stripAnsi(str) {
+  return str.replace(/\x1b\[[0-9;]*m/g, '');
+}
 
 function renderLogs() {
   let lines = state.logLines;
   if (state.logFilter !== 'raw') {
     const pat = LOG_PATTERNS[state.logFilter];
-    if (pat) lines = lines.filter(l => pat.test(l.text));
+    if (pat) lines = lines.filter(l => pat.test(stripAnsi(l.text)));
   }
 
   let html = '';
@@ -484,6 +501,7 @@ es.onerror = () => { statusDot.classList.remove('connected'); };
 
 es.addEventListener('request', (e) => {
   const r = JSON.parse(e.data);
+  r.displayId = state.nextDisplayId++;
   state.requests.push(r);
 
   // Track hosts for filter
@@ -520,7 +538,7 @@ $$('th[data-sort]').forEach(th => {
       state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
     } else {
       state.sortBy = key;
-      state.sortDir = key === 'id' ? 'desc' : 'asc';
+      state.sortDir = key === 'displayId' ? 'desc' : 'asc';
     }
     scheduleRender();
   });
@@ -528,6 +546,7 @@ $$('th[data-sort]').forEach(th => {
 
 // Filters
 $('#filterMethod').addEventListener('change', (e) => { state.filters.method = e.target.value; scheduleRender(); });
+$('#filterDir').addEventListener('change', (e) => { state.filters.dir = e.target.value; scheduleRender(); });
 $('#filterStatus').addEventListener('change', (e) => { state.filters.status = e.target.value; scheduleRender(); });
 $('#filterHost').addEventListener('change', (e) => { state.filters.host = e.target.value; scheduleRender(); });
 $('#filterSearch').addEventListener('input', (e) => { state.filters.search = e.target.value; scheduleRender(); });
@@ -536,6 +555,8 @@ $('#filterSearch').addEventListener('input', (e) => { state.filters.search = e.t
 $('#clearBtn').addEventListener('click', () => {
   state.requests.length = 0;
   state.selectedId = null;
+  state.nextDisplayId = 1;
+  state.detailDrawerState = 'collapsed';
   state.knownHosts.clear();
   filterHost.innerHTML = '<option value="">Host</option>';
   detailDrawer.classList.remove('open');
@@ -549,6 +570,7 @@ tableBody.addEventListener('click', (e) => {
   const id = parseInt(row.dataset.id, 10);
   state.selectedId = id;
   state.activeTab = 'headers';
+  if (state.detailDrawerState === 'collapsed') state.detailDrawerState = 'medium';
   scheduleRender();
   renderDetail();
 });
@@ -556,8 +578,15 @@ tableBody.addEventListener('click', (e) => {
 // Detail close
 $('#detailClose').addEventListener('click', () => {
   state.selectedId = null;
-  detailDrawer.classList.remove('open');
+  state.detailDrawerState = 'collapsed';
+  detailDrawer.classList.remove('open', 'wide');
   scheduleRender();
+});
+
+// Detail expand toggle
+$('#detailExpand').addEventListener('click', () => {
+  state.detailDrawerState = state.detailDrawerState === 'medium' ? 'wide' : 'medium';
+  renderDetail();
 });
 
 // Detail tabs

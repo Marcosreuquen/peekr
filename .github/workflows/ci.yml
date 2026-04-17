@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_call:
+
+jobs:
+  test:
+    name: Smoke test (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ['18', '22']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Syntax check all modules
+        run: |
+          node --check bin/peekr.mjs
+          for f in lib/*.mjs; do node --check "$f"; done
+
+      - name: CLI smoke test
+        run: |
+          node bin/peekr.mjs --help
+          node bin/peekr.mjs run --help
+          node bin/peekr.mjs ui --help
+          node bin/peekr.mjs logs --help

@@ -115,8 +115,16 @@
   .detail-content pre {
     white-space: pre-wrap; word-break: break-all; line-height: 1.5;
     background: var(--bg); padding: 10px; border-radius: 4px; border: 1px solid var(--border);
-    max-height: 400px; overflow: auto;
   }
+  .pre-wrap { position: relative; }
+  .copy-btn {
+    position: absolute; top: 6px; right: 6px;
+    background: var(--bg-alt); color: var(--text-dim); border: 1px solid var(--border);
+    border-radius: 3px; padding: 2px 8px; cursor: pointer; font-size: 0.68rem;
+    font-family: var(--font-sans);
+  }
+  .copy-btn:hover { color: var(--text); border-color: var(--text-dim); }
+  .copy-btn.copied { color: var(--green); border-color: var(--green); }
   .detail-content .section-label {
     font-family: var(--font-sans); font-weight: 600; color: var(--text-dim);
     font-size: 0.72rem; margin: 12px 0 6px; text-transform: uppercase; letter-spacing: 0.5px;
@@ -197,6 +205,8 @@
   }
   .rule-action-block { color: var(--red); background: #f8514915; }
   .rule-action-mock { color: var(--yellow); background: #d2992215; }
+  .rule-action-transform { color: var(--cyan); background: #79c0ff15; }
+  .rule-action-breakpoint { color: var(--purple); background: #d2a8ff15; }
   .rule-item .rule-host { color: var(--text-bright); font-weight: 600; }
   .rule-item .rule-route { color: var(--text-dim); }
   .rule-item .rule-mock-summary { color: var(--text-dim); font-size: 0.68rem; width: 100%; margin-top: 2px; }
@@ -263,6 +273,59 @@
     padding: 6px 12px; cursor: pointer; color: var(--text);
   }
   .ctx-menu-item:hover { background: #1c2128; }
+
+  /* ── Breakpoints Panel ─────────────────────── */
+  .bp-panel {
+    position: fixed; top: 0; right: 0; width: 420px; height: 100vh;
+    background: var(--bg-alt); border-left: 1px solid var(--border);
+    z-index: 50; display: flex; flex-direction: column;
+    transform: translateX(100%); transition: transform 0.2s ease;
+  }
+  .bp-panel.open { transform: translateX(0); }
+  .bp-panel-header {
+    display: flex; align-items: center; padding: 10px 12px;
+    border-bottom: 1px solid var(--border); font-family: var(--font-sans);
+    font-weight: 600; font-size: 0.8rem;
+  }
+  .bp-panel-header .close-btn {
+    margin-left: auto; background: none; border: none; color: var(--text-dim);
+    cursor: pointer; font-size: 1.1rem; padding: 2px 6px;
+  }
+  .bp-count-badge {
+    background: var(--purple); color: #fff; font-size: 0.65rem;
+    padding: 1px 6px; border-radius: 8px; margin-left: 6px;
+  }
+  .bp-list { flex: 1; overflow-y: auto; padding: 8px 12px; }
+  .bp-card {
+    border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px;
+    margin-bottom: 8px; font-size: 0.72rem;
+  }
+  .bp-card-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+  .bp-timer { margin-left: auto; color: var(--yellow); font-family: var(--font-mono); font-size: 0.7rem; }
+  .bp-timer.urgent { color: var(--red); }
+  .bp-detail { background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 6px 8px; margin-bottom: 6px; max-height: 120px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; font-size: 0.68rem; color: var(--text-dim); }
+  .bp-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+  .bp-btn {
+    padding: 3px 10px; border-radius: 3px; border: 1px solid var(--border);
+    background: transparent; color: var(--text-dim); cursor: pointer;
+    font-size: 0.68rem; font-family: var(--font-sans);
+  }
+  .bp-btn:hover { color: var(--text); border-color: var(--text-dim); }
+  .bp-btn.danger { color: var(--red); border-color: #f8514955; }
+  .bp-btn.danger:hover { background: #f8514915; }
+  .bp-btn.primary { color: var(--blue); border-color: #58a6ff55; }
+  .bp-btn.primary:hover { background: #58a6ff15; }
+  .bp-edit-area { display: none; margin-top: 6px; }
+  .bp-edit-area.visible { display: block; }
+  .bp-edit-area textarea {
+    width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 3px; padding: 4px 6px; font-size: 0.7rem; font-family: var(--font-mono);
+    min-height: 60px; resize: vertical;
+  }
+  .bp-edit-area .bp-edit-row { display: flex; gap: 6px; margin-top: 4px; align-items: center; }
+  .bp-edit-area label { font-size: 0.65rem; color: var(--text-dim); font-family: var(--font-sans); }
+  .bp-edit-area input { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px; font-size: 0.7rem; font-family: var(--font-mono); width: 70px; }
+  .bp-timed-out { opacity: 0.5; font-style: italic; font-size: 0.65rem; color: var(--text-dim); }
 </style>
 </head>
 <body>
@@ -294,6 +357,7 @@
     <button class="tbtn" id="toggleRules" title="Rules">&#9881;</button>
     <button class="tbtn" id="toggleDetail" title="Detail">&#9776;</button>
     <button class="tbtn" id="toggleLogs" title="Logs">&#9654;</button>
+    <button class="tbtn" id="bpToggleBtn" title="Breakpoints" onclick="toggleBpPanel()">&#9646; <span id="bpBadge" style="display:none" class="bp-count-badge">0</span></button>
   </div>
 </div>
 
@@ -346,6 +410,20 @@
     <select id="ruleAction">
       <option value="block">Block</option>
       <option value="mock">Mock</option>
+      <option value="transform">Transform</option>
+      <option value="breakpoint">Breakpoint</option>
+    </select>
+    <div class="form-label">Direction</div>
+    <select id="ruleDirection">
+      <option value="BOTH">Both (IN + OUT)</option>
+      <option value="OUT">Outgoing (OUT)</option>
+      <option value="IN">Incoming (IN)</option>
+    </select>
+    <div class="form-label">Phase</div>
+    <select id="rulePhase">
+      <option value="both">Both phases</option>
+      <option value="request">Request only</option>
+      <option value="response">Response only</option>
     </select>
     <div class="mock-fields" id="mockFields">
       <div class="form-row">
@@ -358,6 +436,24 @@
       <textarea id="mockBody">{}</textarea>
       <div class="form-label">Headers (JSON)</div>
       <textarea id="mockHeaders">{}</textarea>
+    </div>
+    <div id="transformFields" style="display:none">
+      <div class="form-label">Request: Set Headers (JSON object, optional)</div>
+      <textarea id="ruleReqSetHeaders" placeholder='{"x-custom": "value"}'></textarea>
+      <div class="form-label">Request: Remove Headers (comma-separated, optional)</div>
+      <input id="ruleReqRemoveHeaders" type="text" placeholder="authorization, x-token">
+      <div class="form-label">Request: Replace Body (optional)</div>
+      <textarea id="ruleReqBody" placeholder='{"key": "value"}'></textarea>
+      <div class="form-label">Response: Override Status (optional)</div>
+      <input id="ruleResStatus" type="number" placeholder="200">
+      <div class="form-label">Response: Set Headers (JSON object, optional)</div>
+      <textarea id="ruleResSetHeaders" placeholder='{"x-injected": "1"}'></textarea>
+      <div class="form-label">Response: Replace Body (optional)</div>
+      <textarea id="ruleResBody" placeholder='{"mocked": true}'></textarea>
+    </div>
+    <div id="breakpointFields" style="display:none">
+      <div class="form-label">Timeout (ms, 0 = no timeout)</div>
+      <input id="ruleTimeoutMs" type="number" value="30000" min="0">
     </div>
     <button class="add-btn" id="addRuleBtn">Add Rule</button>
   </div>
@@ -402,6 +498,18 @@
   <div class="ctx-menu-item" id="ctxBlockHost">Block <span id="ctxHostLabel"></span></div>
   <div class="ctx-menu-item" id="ctxBlockRoute">Block this route</div>
   <div class="ctx-menu-item" id="ctxMockRequest">Mock this request</div>
+</div>
+
+<!-- ── Breakpoints Panel ─────────────────────── -->
+<div class="bp-panel" id="bpPanel">
+  <div class="bp-panel-header">
+    Breakpoints
+    <span class="bp-count-badge" id="bpPanelBadge" style="display:none">0</span>
+    <button class="close-btn" onclick="toggleBpPanel()">&#x2715;</button>
+  </div>
+  <div class="bp-list" id="bpList">
+    <div class="empty-state" id="bpEmpty">No active breakpoints</div>
+  </div>
 </div>
 
 <script>
@@ -606,19 +714,35 @@ function renderDetail() {
     }
   } else if (state.activeTab === 'payload') {
     content += '<div class="section-label">Request Body</div>';
-    content += `<pre>${highlightJson(r.reqBody)}</pre>`;
+    content += `<div class="pre-wrap"><button class="copy-btn" data-copy-target="payload">Copy</button><pre id="pre-payload">${highlightJson(r.reqBody)}</pre></div>`;
   } else if (state.activeTab === 'response') {
     content += '<div class="section-label">Response Body</div>';
-    content += `<pre>${highlightJson(r.resBody)}</pre>`;
+    content += `<div class="pre-wrap"><button class="copy-btn" data-copy-target="response">Copy</button><pre id="pre-response">${highlightJson(r.resBody)}</pre></div>`;
   }
   detailContent.innerHTML = content;
+
+  // Copy buttons
+  detailContent.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const preId = 'pre-' + btn.dataset.copyTarget;
+      const pre = document.getElementById(preId);
+      if (!pre) return;
+      navigator.clipboard.writeText(pre.innerText).then(() => {
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+      });
+    });
+  });
+
   updateToggleButtons();
 }
 
 function renderRules() {
   let html = '';
   for (const r of state.rules) {
-    const actionCls = r.action === 'block' ? 'rule-action-block' : 'rule-action-mock';
+    const actionClsMap = { block: 'rule-action-block', mock: 'rule-action-mock', transform: 'rule-action-transform', breakpoint: 'rule-action-breakpoint' };
+    const actionCls = actionClsMap[r.action] || 'rule-action-block';
     const route = `${r.method === '*' ? 'ALL' : r.method} ${r.path}`;
     let summary = '';
     if (r.action === 'mock' && r.mockConfig) {
@@ -627,6 +751,7 @@ function renderRules() {
     }
     html += `<div class="rule-item">
       <span class="rule-action ${actionCls}">${escHtml(r.action)}</span>
+      <span class="dir-badge dir-${escHtml(r.direction || 'BOTH')}">${escHtml(r.direction || 'BOTH')}</span>
       <span class="rule-host">${escHtml(r.host)}</span>
       <span class="rule-route">${escHtml(route)}</span>
       <button class="rule-delete" data-rule-id="${escHtml(r.id)}">&times;</button>
@@ -856,6 +981,8 @@ $('#rulesClose').addEventListener('click', () => toggleRulesDrawer(false));
 
 $('#ruleAction').addEventListener('change', (e) => {
   $('#mockFields').classList.toggle('visible', e.target.value === 'mock');
+  document.getElementById('transformFields').style.display = e.target.value === 'transform' ? 'block' : 'none';
+  document.getElementById('breakpointFields').style.display = e.target.value === 'breakpoint' ? 'block' : 'none';
 });
 
 $('#addRuleBtn').addEventListener('click', async () => {
@@ -866,7 +993,32 @@ $('#addRuleBtn').addEventListener('click', async () => {
     method: $('#ruleMethod').value,
     path: $('#rulePath').value.trim() || '*',
     action: $('#ruleAction').value,
+    direction: $('#ruleDirection').value,
+    phase: $('#rulePhase').value,
   };
+  if (data.action === 'transform') {
+    const reqSetRaw = $('#ruleReqSetHeaders').value.trim();
+    const resSetRaw = $('#ruleResSetHeaders').value.trim();
+    const reqRemoveRaw = $('#ruleReqRemoveHeaders').value.trim();
+    const reqBodyRaw = $('#ruleReqBody').value.trim();
+    const resBodyRaw = $('#ruleResBody').value.trim();
+    const resStatus = $('#ruleResStatus').value.trim();
+    data.reqTransform = {
+      headers: {
+        set: reqSetRaw ? JSON.parse(reqSetRaw) : {},
+        remove: reqRemoveRaw ? reqRemoveRaw.split(',').map(s => s.trim()).filter(Boolean) : []
+      },
+      body: reqBodyRaw || null
+    };
+    data.resTransform = {
+      status: resStatus ? parseInt(resStatus, 10) : null,
+      headers: { set: resSetRaw ? JSON.parse(resSetRaw) : {}, remove: [] },
+      body: resBodyRaw || null
+    };
+  }
+  if (data.action === 'breakpoint') {
+    data.timeoutMs = parseInt($('#ruleTimeoutMs').value || '30000', 10);
+  }
   if (data.action === 'mock') {
     data.mockConfig = {
       status: parseInt($('#mockStatus').value, 10) || 200,
@@ -883,6 +1035,8 @@ $('#addRuleBtn').addEventListener('click', async () => {
   $('#rulePath').value = '*';
   $('#ruleAction').value = 'block';
   $('#mockFields').classList.remove('visible');
+  document.getElementById('transformFields').style.display = 'none';
+  document.getElementById('breakpointFields').style.display = 'none';
   $('#mockStatus').value = '200';
   $('#mockBody').value = '{}';
   $('#mockHeaders').value = '{}';
@@ -961,6 +1115,144 @@ $('#toggleLogs').addEventListener('click', (e) => {
   updateLogDrawer();
   updateToggleButtons();
 });
+
+// ── Breakpoints Panel ─────────────────────────────
+const bpMap = new Map(); // id -> { context, timerId, cardEl }
+
+function toggleBpPanel() {
+  const panel = document.getElementById('bpPanel');
+  panel.classList.toggle('open');
+  document.getElementById('bpToggleBtn').classList.toggle('active', panel.classList.contains('open'));
+}
+
+function updateBpBadge() {
+  const count = bpMap.size;
+  const badge = document.getElementById('bpBadge');
+  const panelBadge = document.getElementById('bpPanelBadge');
+  badge.textContent = count;
+  panelBadge.textContent = count;
+  badge.style.display = count > 0 ? '' : 'none';
+  panelBadge.style.display = count > 0 ? '' : 'none';
+  document.getElementById('bpEmpty').style.display = count === 0 ? '' : 'none';
+}
+
+function renderBpCard(bp) {
+  const card = document.createElement('div');
+  card.className = 'bp-card';
+  card.id = `bp-${bp.id}`;
+
+  const remaining = Math.ceil((bp.timeoutMs || 30000) / 1000);
+  card.innerHTML = `
+    <div class="bp-card-header">
+      <span class="method-badge method-${bp.method}">${bp.method}</span>
+      <span class="dir-badge dir-${bp.direction}">${bp.direction}</span>
+      <span style="color:var(--text-dim);font-size:0.68rem">${bp.phase}</span>
+      <span style="color:var(--text-bright);font-size:0.72rem">${escHtml(bp.host)}${escHtml(bp.path)}</span>
+      <span class="bp-timer" id="bptimer-${bp.id}">${bp.timeoutMs > 0 ? remaining + 's' : '&#8734;'}</span>
+    </div>
+    <div class="bp-detail">${escHtml(JSON.stringify({ headers: bp.headers, body: bp.body }, null, 2))}</div>
+    <div class="bp-actions">
+      <button class="bp-btn primary" onclick="bpAction('${bp.id}','continue')">Continue</button>
+      <button class="bp-btn" onclick="bpAction('${bp.id}','log-only')">Log Only</button>
+      <button class="bp-btn" onclick="bpShowEdit('${bp.id}')">Edit &amp; Continue</button>
+      <button class="bp-btn" onclick="bpShowMock('${bp.id}')">Mock</button>
+      <button class="bp-btn danger" onclick="bpAction('${bp.id}','block')">Block</button>
+    </div>
+    <div class="bp-edit-area" id="bpedit-${bp.id}">
+      <div class="form-label">Headers (JSON object)</div>
+      <textarea id="bpedit-headers-${bp.id}" placeholder='{"x-debug": "true"}'></textarea>
+      <div class="form-label">Body</div>
+      <textarea id="bpedit-body-${bp.id}">${escHtml(bp.body || '')}</textarea>
+      <div class="bp-edit-row">
+        <label>Status</label><input type="number" id="bpedit-status-${bp.id}" placeholder="200">
+        <button class="bp-btn primary" onclick="bpSubmitEdit('${bp.id}')">Apply &amp; Continue</button>
+      </div>
+    </div>
+  `;
+
+  if (bp.timeoutMs > 0) {
+    let secs = remaining;
+    const timerId = setInterval(() => {
+      secs--;
+      const timerEl = document.getElementById(`bptimer-${bp.id}`);
+      if (!timerEl) { clearInterval(timerId); return; }
+      timerEl.textContent = secs + 's';
+      if (secs <= 5) timerEl.classList.add('urgent');
+      if (secs <= 0) {
+        clearInterval(timerId);
+        timerEl.textContent = 'timed out';
+        card.querySelector('.bp-actions').innerHTML = '<span class="bp-timed-out">Timed out — continued automatically</span>';
+        setTimeout(() => removeBpCard(bp.id), 2000);
+      }
+    }, 1000);
+    bpMap.get(bp.id).timerId = timerId;
+  }
+
+  return card;
+}
+
+function bpShowEdit(id) {
+  document.getElementById(`bpedit-${id}`).classList.toggle('visible');
+}
+
+function bpShowMock(id) {
+  const area = document.getElementById(`bpedit-${id}`);
+  area.classList.add('visible');
+  area.dataset.mode = 'mock';
+}
+
+async function bpAction(id, action) {
+  await fetch(`/api/breakpoints/${id}/resolve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action })
+  });
+  removeBpCard(id);
+}
+
+async function bpSubmitEdit(id) {
+  const area = document.getElementById(`bpedit-${id}`);
+  const action = area.dataset.mode === 'mock' ? 'mock' : 'edit';
+  const headersRaw = document.getElementById(`bpedit-headers-${id}`).value.trim();
+  const body = document.getElementById(`bpedit-body-${id}`).value;
+  const statusRaw = document.getElementById(`bpedit-status-${id}`).value.trim();
+  const edits = {};
+  if (headersRaw) { try { edits.headers = JSON.parse(headersRaw); } catch {} }
+  if (body) edits.body = body;
+  if (statusRaw) edits.status = parseInt(statusRaw, 10);
+
+  await fetch(`/api/breakpoints/${id}/resolve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, edits })
+  });
+  removeBpCard(id);
+}
+
+function removeBpCard(id) {
+  const entry = bpMap.get(id);
+  if (!entry) return;
+  clearInterval(entry.timerId);
+  bpMap.delete(id);
+  const card = document.getElementById(`bp-${id}`);
+  if (card) card.remove();
+  updateBpBadge();
+}
+
+function addBpCard(bp) {
+  bpMap.set(bp.id, { context: bp, timerId: null, cardEl: null });
+  const card = renderBpCard(bp);
+  bpMap.get(bp.id).cardEl = card;
+  document.getElementById('bpList').appendChild(card);
+  updateBpBadge();
+  // Auto-open panel when a breakpoint arrives
+  document.getElementById('bpPanel').classList.add('open');
+  document.getElementById('bpToggleBtn').classList.add('active');
+}
+
+// Wire breakpoint SSE events into existing EventSource
+es.addEventListener('breakpoint', e => addBpCard(JSON.parse(e.data)));
+es.addEventListener('breakpoint-cleared', e => removeBpCard(JSON.parse(e.data).id));
 </script>
 </body>
 </html>

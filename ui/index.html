@@ -1147,33 +1147,44 @@ function renderBpCard(bp) {
   const remaining = Math.ceil((bp.timeoutMs || 30000) / 1000);
   card.innerHTML = `
     <div class="bp-card-header">
-      <span class="method-badge method-${bp.method}">${escHtml(bp.method)}</span>
+      <span class="method-badge method-${escHtml(bp.method)}">${escHtml(bp.method)}</span>
       <span class="dir-badge dir-${escHtml(bp.direction)}">${escHtml(bp.direction)}</span>
       <span style="color:var(--text-dim);font-size:0.68rem">${escHtml(bp.phase)}</span>
       <span style="color:var(--text-bright);font-size:0.72rem">${escHtml(bp.host)}${escHtml(bp.path)}</span>
       <span class="bp-timer" id="bptimer-${escHtml(bp.id)}">${bp.timeoutMs > 0 ? remaining + 's' : '&#8734;'}</span>
     </div>
     <div class="bp-detail">${escHtml(JSON.stringify({ headers: bp.headers, body: bp.body }, null, 2))}</div>
-    <div class="bp-actions">
-      <button class="bp-btn primary" onclick="bpAction('${escHtml(bp.id)}','continue')">Continue</button>
-      <button class="bp-btn" onclick="bpAction('${escHtml(bp.id)}','log-only')">Log Only</button>
-      <button class="bp-btn" onclick="bpShowEdit('${escHtml(bp.id)}')">Edit &amp; Continue</button>
-      <button class="bp-btn" onclick="bpShowMock('${escHtml(bp.id)}')">Mock</button>
-      <button class="bp-btn danger" onclick="bpAction('${escHtml(bp.id)}','block')">Block</button>
-    </div>
-    <div class="bp-edit-area" id="bpedit-${escHtml(bp.id)}">
-      <div class="form-label">Headers (JSON object)</div>
-      <textarea id="bpedit-headers-${escHtml(bp.id)}" placeholder='{"x-debug": "true"}'></textarea>
-      <div class="form-label">Body</div>
-      <textarea id="bpedit-body-${escHtml(bp.id)}">${escHtml(bp.body || '')}</textarea>
-      <div class="bp-edit-row">
-        <label>Status</label><input type="number" id="bpedit-status-${escHtml(bp.id)}" placeholder="200">
-        <button class="bp-btn primary" onclick="bpSubmitEdit('${escHtml(bp.id)}')">Apply &amp; Continue</button>
-      </div>
-    </div>
-  `;
+     <div class="bp-actions">
+       <button class="bp-btn primary" data-bp-id="${escHtml(bp.id)}" data-bp-action="continue">Continue</button>
+       <button class="bp-btn" data-bp-id="${escHtml(bp.id)}" data-bp-action="log-only">Log Only</button>
+       <button class="bp-btn" data-bp-id="${escHtml(bp.id)}" data-bp-action="show-edit">Edit &amp; Continue</button>
+       <button class="bp-btn" data-bp-id="${escHtml(bp.id)}" data-bp-action="show-mock">Mock</button>
+       <button class="bp-btn danger" data-bp-id="${escHtml(bp.id)}" data-bp-action="block">Block</button>
+     </div>
+     <div class="bp-edit-area" id="bpedit-${escHtml(bp.id)}">
+       <div class="form-label">Headers (JSON object)</div>
+       <textarea id="bpedit-headers-${escHtml(bp.id)}" placeholder='{"x-debug": "true"}'></textarea>
+       <div class="form-label">Body</div>
+       <textarea id="bpedit-body-${escHtml(bp.id)}">${escHtml(bp.body || '')}</textarea>
+       <div class="bp-edit-row">
+         <label>Status</label><input type="number" id="bpedit-status-${escHtml(bp.id)}" placeholder="200">
+         <button class="bp-btn primary" data-bp-id="${escHtml(bp.id)}" data-bp-action="submit-edit">Apply &amp; Continue</button>
+       </div>
+     </div>
+   `;
 
-  if (bp.timeoutMs > 0) {
+   card.querySelectorAll('[data-bp-id]').forEach(btn => {
+     btn.addEventListener('click', () => {
+       const id = btn.dataset.bpId;
+       const action = btn.dataset.bpAction;
+       if (action === 'show-edit') { bpShowEdit(id); }
+       else if (action === 'show-mock') { bpShowMock(id); }
+       else if (action === 'submit-edit') { bpSubmitEdit(id); }
+       else { bpAction(id, action); }
+     });
+   });
+
+   if (bp.timeoutMs > 0) {
     let secs = remaining;
     const timerId = setInterval(() => {
       secs--;

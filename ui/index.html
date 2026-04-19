@@ -205,9 +205,27 @@
     text-transform: uppercase;
   }
   .rule-action-block { color: var(--red); background: #f8514915; }
-  .rule-action-mock { color: var(--yellow); background: #d2992215; }
-  .rule-action-transform { color: var(--cyan); background: #79c0ff15; }
+  .rule-action-modify { color: var(--cyan); background: #79c0ff15; }
   .rule-action-breakpoint { color: var(--purple); background: #d2a8ff15; }
+  .rule-item .rule-edit {
+    background: none; border: none; color: var(--text-dim);
+    cursor: pointer; font-size: 0.75rem; padding: 0 4px;
+  }
+  .rule-item .rule-edit:hover { color: var(--blue); }
+  .rule-item.expandable { cursor: pointer; }
+  .rule-details { display: none; width: 100%; margin-top: 6px; font-size: 0.68rem; color: var(--text-dim); border-top: 1px solid var(--border); padding-top: 6px; }
+  .rule-details.open { display: block; }
+  .rule-details dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; }
+  .rule-details dt { color: var(--text-dim); }
+  .rule-details dd { color: var(--text); word-break: break-all; }
+  .rule-noforward { font-size: 0.62rem; font-weight: bold; padding: 1px 5px; border-radius: 3px; color: var(--yellow); background: #d2992215; }
+  .modify-section { border: 1px solid var(--border); border-radius: 4px; padding: 8px; margin-top: 8px; }
+  .modify-section-title { font-family: var(--font-sans); font-size: 0.65rem; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .form-cancel-btn {
+    width: 100%; margin-top: 6px; padding: 5px; background: transparent; color: var(--text-dim);
+    border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 0.73rem; font-family: var(--font-sans);
+  }
+  .form-cancel-btn:hover { color: var(--text); border-color: var(--text-dim); }
   .rule-item .rule-host { color: var(--text-bright); font-weight: 600; }
   .rule-item .rule-route { color: var(--text-dim); }
   .rule-item .rule-mock-summary { color: var(--text-dim); font-size: 0.68rem; width: 100%; margin-top: 2px; }
@@ -238,8 +256,10 @@
     font-weight: 600;
   }
   .rules-form .add-btn:hover { opacity: 0.9; }
-  .mock-fields { display: none; }
-  .mock-fields.visible { display: block; }
+  .modify-fields { display: none; }
+  .modify-fields.visible { display: block; }
+  .breakpoint-fields { display: none; }
+  .breakpoint-fields.visible { display: block; }
 
   /* ── Top Bar Toggle Group ──────────────────── */
   .top-bar .drawer-toggles {
@@ -390,6 +410,7 @@
   </div>
   <div class="rules-list" id="rulesList"></div>
   <div class="rules-form" id="rulesForm">
+    <input type="hidden" id="editRuleId" value="">
     <div class="form-label">Host</div>
     <input type="text" id="ruleHost" placeholder="api.example.com" list="hostSuggestions">
     <datalist id="hostSuggestions"></datalist>
@@ -407,56 +428,55 @@
         <input type="text" id="rulePath" placeholder="*" value="*">
       </div>
     </div>
-    <div class="form-label">Action</div>
-    <select id="ruleAction">
-      <option value="block">Block</option>
-      <option value="mock">Mock</option>
-      <option value="transform">Transform</option>
-      <option value="breakpoint">Breakpoint</option>
-    </select>
-    <div class="form-label">Direction</div>
-    <select id="ruleDirection">
-      <option value="BOTH">Both (IN + OUT)</option>
-      <option value="OUT">Outgoing (OUT)</option>
-      <option value="IN">Incoming (IN)</option>
-    </select>
-    <div class="form-label">Phase</div>
-    <select id="rulePhase">
-      <option value="both">Both phases</option>
-      <option value="request">Request only</option>
-      <option value="response">Response only</option>
-    </select>
-    <div class="mock-fields" id="mockFields">
-      <div class="form-row">
-        <div>
-          <div class="form-label">Status</div>
-          <input type="number" id="mockStatus" value="200">
-        </div>
+    <div class="form-row">
+      <div>
+        <div class="form-label">Action</div>
+        <select id="ruleAction">
+          <option value="block">Block</option>
+          <option value="modify">Modify</option>
+          <option value="breakpoint">Breakpoint</option>
+        </select>
       </div>
-      <div class="form-label">Body (JSON)</div>
-      <textarea id="mockBody">{}</textarea>
-      <div class="form-label">Headers (JSON)</div>
-      <textarea id="mockHeaders">{}</textarea>
+      <div>
+        <div class="form-label">Direction</div>
+        <select id="ruleDirection">
+          <option value="OUT">Outgoing (OUT)</option>
+          <option value="IN">Incoming (IN)</option>
+        </select>
+      </div>
     </div>
-    <div id="transformFields" style="display:none">
-      <div class="form-label">Request: Set Headers (JSON object, optional)</div>
-      <textarea id="ruleReqSetHeaders" placeholder='{"x-custom": "value"}'></textarea>
-      <div class="form-label">Request: Remove Headers (comma-separated, optional)</div>
-      <input id="ruleReqRemoveHeaders" type="text" placeholder="authorization, x-token">
-      <div class="form-label">Request: Replace Body (optional)</div>
-      <textarea id="ruleReqBody" placeholder='{"key": "value"}'></textarea>
-      <div class="form-label">Response: Override Status (optional)</div>
-      <input id="ruleResStatus" type="number" placeholder="200">
-      <div class="form-label">Response: Set Headers (JSON object, optional)</div>
-      <textarea id="ruleResSetHeaders" placeholder='{"x-injected": "1"}'></textarea>
-      <div class="form-label">Response: Replace Body (optional)</div>
-      <textarea id="ruleResBody" placeholder='{"mocked": true}'></textarea>
+    <!-- modifyConfig section -->
+    <div class="modify-fields" id="modifyFields">
+      <div class="modify-section">
+        <div class="modify-section-title">Modify Config</div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.73rem;margin-bottom:8px">
+          <input type="checkbox" id="modifyNoForward"> Don't forward to upstream
+        </label>
+        <div class="modify-section-title" style="margin-top:6px">Request</div>
+        <div class="form-label">Body override</div>
+        <textarea id="modifyReqBody" placeholder='{"key":"value"} or leave empty'></textarea>
+        <div class="form-label">Set headers (key: value, one per line)</div>
+        <textarea id="modifyReqSetHeaders" placeholder="x-custom: value&#10;x-other: 123"></textarea>
+        <div class="form-label">Remove headers (comma-separated)</div>
+        <input type="text" id="modifyReqRemoveHeaders" placeholder="authorization, x-token">
+        <div class="modify-section-title" style="margin-top:10px">Response</div>
+        <div class="form-label">Status override</div>
+        <input type="number" id="modifyResStatus" placeholder="200 (leave empty to keep)">
+        <div class="form-label">Body override</div>
+        <textarea id="modifyResBody" placeholder='{"mocked":true} or leave empty'></textarea>
+        <div class="form-label">Set headers (key: value, one per line)</div>
+        <textarea id="modifyResSetHeaders" placeholder="x-injected: 1"></textarea>
+        <div class="form-label">Remove headers (comma-separated)</div>
+        <input type="text" id="modifyResRemoveHeaders" placeholder="set-cookie, x-auth">
+      </div>
     </div>
-    <div id="breakpointFields" style="display:none">
+    <!-- breakpoint timeout -->
+    <div class="breakpoint-fields" id="breakpointFields">
       <div class="form-label">Timeout (ms, 0 = no timeout)</div>
       <input id="ruleTimeoutMs" type="number" value="30000" min="0">
     </div>
     <button class="add-btn" id="addRuleBtn">Add Rule</button>
+    <button class="form-cancel-btn" id="cancelEditBtn" style="display:none">Cancel edit</button>
   </div>
 </div>
 
@@ -496,9 +516,10 @@
 
 <!-- ── Context Menu ──────────────────────────── -->
 <div class="ctx-menu" id="ctxMenu">
-  <div class="ctx-menu-item" id="ctxBlockHost">Block <span id="ctxHostLabel"></span></div>
-  <div class="ctx-menu-item" id="ctxBlockRoute">Block this route</div>
-  <div class="ctx-menu-item" id="ctxMockRequest">Mock this request</div>
+  <div style="padding:4px 12px 6px;font-size:0.68rem;color:var(--text-dim);border-bottom:1px solid var(--border);margin-bottom:4px" id="ctxRouteLabel"></div>
+  <div class="ctx-menu-item" id="ctxBlock">Block this route</div>
+  <div class="ctx-menu-item" id="ctxModify">Modify this route</div>
+  <div class="ctx-menu-item" id="ctxBreakpoint">Add breakpoint</div>
 </div>
 
 <!-- ── Breakpoints Panel ─────────────────────── -->
@@ -739,24 +760,56 @@ function renderDetail() {
   updateToggleButtons();
 }
 
+function parseHeaderLines(text) {
+  const obj = {};
+  for (const line of text.split('\n')) {
+    const idx = line.indexOf(':');
+    if (idx < 1) continue;
+    const key = line.slice(0, idx).trim();
+    const val = line.slice(idx + 1).trim();
+    if (key) obj[key] = val;
+  }
+  return obj;
+}
+
+function headerObjToLines(obj) {
+  if (!obj || typeof obj !== 'object') return '';
+  return Object.entries(obj).map(([k, v]) => `${k}: ${v}`).join('\n');
+}
+
 function renderRules() {
   let html = '';
   for (const r of state.rules) {
-    const actionClsMap = { block: 'rule-action-block', mock: 'rule-action-mock', transform: 'rule-action-transform', breakpoint: 'rule-action-breakpoint' };
+    const actionClsMap = { block: 'rule-action-block', modify: 'rule-action-modify', breakpoint: 'rule-action-breakpoint' };
     const actionCls = actionClsMap[r.action] || 'rule-action-block';
     const route = `${r.method === '*' ? 'ALL' : r.method} ${r.path}`;
-    let summary = '';
-    if (r.action === 'mock' && r.mockConfig) {
-      const bodyPreview = (r.mockConfig.body || '{}').slice(0, 40);
-      summary = `<div class="rule-mock-summary">${r.mockConfig.status || 200} — ${escHtml(bodyPreview)}</div>`;
+    const noFwdBadge = (r.action === 'modify' && r.modifyConfig && r.modifyConfig.noForward)
+      ? '<span class="rule-noforward">mock</span>' : '';
+    const dir = r.direction || 'OUT';
+
+    let detailsHtml = '';
+    if (r.action === 'modify' && r.modifyConfig) {
+      const mc = r.modifyConfig;
+      const parts = [];
+      if (mc.noForward) parts.push('<dt>No forward</dt><dd>yes</dd>');
+      if (mc.reqBody) parts.push(`<dt>req.body</dt><dd>${escHtml(mc.reqBody.slice(0, 60))}</dd>`);
+      if (mc.resStatus) parts.push(`<dt>res.status</dt><dd>${escHtml(String(mc.resStatus))}</dd>`);
+      if (mc.resBody) parts.push(`<dt>res.body</dt><dd>${escHtml(mc.resBody.slice(0, 60))}</dd>`);
+      if (parts.length) detailsHtml = `<div class="rule-details" id="rd-${escHtml(r.id)}"><dl>${parts.join('')}</dl></div>`;
+      else detailsHtml = `<div class="rule-details" id="rd-${escHtml(r.id)}"><span style="color:var(--text-dim)">no overrides</span></div>`;
+    } else if (r.action === 'breakpoint') {
+      detailsHtml = `<div class="rule-details" id="rd-${escHtml(r.id)}"><dl><dt>timeout</dt><dd>${escHtml(String(r.timeoutMs || 30000))}ms</dd></dl></div>`;
     }
-    html += `<div class="rule-item">
+
+    html += `<div class="rule-item expandable" data-rule-id="${escHtml(r.id)}">
       <span class="rule-action ${actionCls}">${escHtml(r.action)}</span>
-      <span class="dir-badge dir-${escHtml(r.direction || 'BOTH')}">${escHtml(r.direction || 'BOTH')}</span>
+      <span class="dir-badge dir-${escHtml(dir)}">${escHtml(dir)}</span>
+      ${noFwdBadge}
       <span class="rule-host">${escHtml(r.host)}</span>
       <span class="rule-route">${escHtml(route)}</span>
+      <button class="rule-edit" data-rule-id="${escHtml(r.id)}" title="Edit">&#9998;</button>
       <button class="rule-delete" data-rule-id="${escHtml(r.id)}">&times;</button>
-      ${summary}
+      ${detailsHtml}
     </div>`;
   }
   if (!html) html = '<div style="color:var(--text-dim);font-size:0.73rem;padding:8px 0">No rules defined</div>';
@@ -981,74 +1034,136 @@ function toggleRulesDrawer(open) {
 $('#rulesClose').addEventListener('click', () => toggleRulesDrawer(false));
 
 $('#ruleAction').addEventListener('change', (e) => {
-  $('#mockFields').classList.toggle('visible', e.target.value === 'mock');
-  document.getElementById('transformFields').style.display = e.target.value === 'transform' ? 'block' : 'none';
-  document.getElementById('breakpointFields').style.display = e.target.value === 'breakpoint' ? 'block' : 'none';
+  $('#modifyFields').classList.toggle('visible', e.target.value === 'modify');
+  $('#breakpointFields').classList.toggle('visible', e.target.value === 'breakpoint');
 });
 
-$('#addRuleBtn').addEventListener('click', async () => {
-  const host = $('#ruleHost').value.trim();
-  if (!host) return;
-  const data = {
-    host,
-    method: $('#ruleMethod').value,
-    path: $('#rulePath').value.trim() || '*',
-    action: $('#ruleAction').value,
-    direction: $('#ruleDirection').value,
-    phase: $('#rulePhase').value,
-  };
-  if (data.action === 'transform') {
-    const reqSetRaw = $('#ruleReqSetHeaders').value.trim();
-    const resSetRaw = $('#ruleResSetHeaders').value.trim();
-    const reqRemoveRaw = $('#ruleReqRemoveHeaders').value.trim();
-    const reqBodyRaw = $('#ruleReqBody').value.trim();
-    const resBodyRaw = $('#ruleResBody').value.trim();
-    const resStatus = $('#ruleResStatus').value.trim();
-    data.reqTransform = {
-      headers: {
-        set: reqSetRaw ? JSON.parse(reqSetRaw) : {},
-        remove: reqRemoveRaw ? reqRemoveRaw.split(',').map(s => s.trim()).filter(Boolean) : []
-      },
-      body: reqBodyRaw || null
-    };
-    data.resTransform = {
-      status: resStatus ? parseInt(resStatus, 10) : null,
-      headers: { set: resSetRaw ? JSON.parse(resSetRaw) : {}, remove: [] },
-      body: resBodyRaw || null
-    };
-  }
-  if (data.action === 'breakpoint') {
-    data.timeoutMs = parseInt($('#ruleTimeoutMs').value || '30000', 10);
-  }
-  if (data.action === 'mock') {
-    data.mockConfig = {
-      status: parseInt($('#mockStatus').value, 10) || 200,
-      body: $('#mockBody').value || '{}',
-    };
-    try {
-      const hdrs = JSON.parse($('#mockHeaders').value || '{}');
-      data.mockConfig.headers = hdrs;
-    } catch { data.mockConfig.headers = {}; }
-  }
-  await apiAddRule(data);
+function resetRuleForm() {
+  $('#editRuleId').value = '';
   $('#ruleHost').value = '';
   $('#ruleMethod').value = '*';
   $('#rulePath').value = '*';
   $('#ruleAction').value = 'block';
-  $('#ruleDirection').value = 'BOTH';
-  $('#rulePhase').value = 'both';
-  $('#mockFields').classList.remove('visible');
-  document.getElementById('transformFields').style.display = 'none';
-  document.getElementById('breakpointFields').style.display = 'none';
-  $('#mockStatus').value = '200';
-  $('#mockBody').value = '{}';
-  $('#mockHeaders').value = '{}';
+  $('#ruleDirection').value = 'OUT';
+  $('#modifyFields').classList.remove('visible');
+  $('#breakpointFields').classList.remove('visible');
+  $('#modifyNoForward').checked = false;
+  $('#modifyReqBody').value = '';
+  $('#modifyReqSetHeaders').value = '';
+  $('#modifyReqRemoveHeaders').value = '';
+  $('#modifyResStatus').value = '';
+  $('#modifyResBody').value = '';
+  $('#modifyResSetHeaders').value = '';
+  $('#modifyResRemoveHeaders').value = '';
+  $('#ruleTimeoutMs').value = '30000';
+  $('#addRuleBtn').textContent = 'Add Rule';
+  $('#cancelEditBtn').style.display = 'none';
+}
+
+function prefillRuleForm(r) {
+  $('#editRuleId').value = r.id || '';
+  $('#ruleHost').value = r.host || '';
+  $('#ruleMethod').value = r.method || '*';
+  $('#rulePath').value = r.path || '*';
+  $('#ruleAction').value = r.action || 'block';
+  $('#ruleDirection').value = r.direction || 'OUT';
+  $('#modifyFields').classList.toggle('visible', r.action === 'modify');
+  $('#breakpointFields').classList.toggle('visible', r.action === 'breakpoint');
+  if (r.action === 'modify' && r.modifyConfig) {
+    const mc = r.modifyConfig;
+    $('#modifyNoForward').checked = !!mc.noForward;
+    $('#modifyReqBody').value = mc.reqBody || '';
+    $('#modifyResStatus').value = mc.resStatus != null ? mc.resStatus : '';
+    $('#modifyResBody').value = mc.resBody || '';
+    $('#modifyReqSetHeaders').value = headerObjToLines(mc.reqHeaders && mc.reqHeaders.set);
+    $('#modifyReqRemoveHeaders').value = (mc.reqHeaders && mc.reqHeaders.remove || []).join(', ');
+    $('#modifyResSetHeaders').value = headerObjToLines(mc.resHeaders && mc.resHeaders.set);
+    $('#modifyResRemoveHeaders').value = (mc.resHeaders && mc.resHeaders.remove || []).join(', ');
+  }
+  if (r.action === 'breakpoint') {
+    $('#ruleTimeoutMs').value = r.timeoutMs != null ? r.timeoutMs : '30000';
+  }
+  $('#addRuleBtn').textContent = r.id ? 'Update Rule' : 'Add Rule';
+  $('#cancelEditBtn').style.display = r.id ? '' : 'none';
+}
+
+$('#cancelEditBtn').addEventListener('click', resetRuleForm);
+
+$('#addRuleBtn').addEventListener('click', async () => {
+  const host = $('#ruleHost').value.trim();
+  if (!host) return;
+  const action = $('#ruleAction').value;
+  const data = {
+    host,
+    method: $('#ruleMethod').value,
+    path: $('#rulePath').value.trim() || '*',
+    action,
+    direction: $('#ruleDirection').value,
+  };
+  if (action === 'modify') {
+    const reqSetRaw = $('#modifyReqSetHeaders').value.trim();
+    const reqRemoveRaw = $('#modifyReqRemoveHeaders').value.trim();
+    const resSetRaw = $('#modifyResSetHeaders').value.trim();
+    const resRemoveRaw = $('#modifyResRemoveHeaders').value.trim();
+    const resStatusRaw = $('#modifyResStatus').value.trim();
+    data.modifyConfig = {
+      noForward: $('#modifyNoForward').checked,
+      reqHeaders: {
+        set: reqSetRaw ? parseHeaderLines(reqSetRaw) : {},
+        remove: reqRemoveRaw ? reqRemoveRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
+      },
+      reqBody: $('#modifyReqBody').value.trim() || null,
+      resStatus: resStatusRaw ? parseInt(resStatusRaw, 10) : null,
+      resHeaders: {
+        set: resSetRaw ? parseHeaderLines(resSetRaw) : {},
+        remove: resRemoveRaw ? resRemoveRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
+      },
+      resBody: $('#modifyResBody').value.trim() || null,
+    };
+  }
+  if (action === 'breakpoint') {
+    data.timeoutMs = parseInt($('#ruleTimeoutMs').value || '30000', 10);
+  }
+
+  const editId = $('#editRuleId').value.trim();
+  if (editId) {
+    await fetch(`/api/rules/${editId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  } else {
+    await apiAddRule(data);
+  }
+  resetRuleForm();
 });
 
 rulesList.addEventListener('click', async (e) => {
-  const btn = e.target.closest('.rule-delete');
-  if (!btn) return;
-  await apiDeleteRule(btn.dataset.ruleId);
+  // Delete
+  const delBtn = e.target.closest('.rule-delete');
+  if (delBtn) {
+    e.stopPropagation();
+    await apiDeleteRule(delBtn.dataset.ruleId);
+    return;
+  }
+  // Edit
+  const editBtn = e.target.closest('.rule-edit');
+  if (editBtn) {
+    e.stopPropagation();
+    const r = state.rules.find(x => x.id === editBtn.dataset.ruleId);
+    if (!r) return;
+    toggleRulesDrawer(true);
+    prefillRuleForm(r);
+    $('#rulesForm').scrollIntoView({ behavior: 'smooth' });
+    return;
+  }
+  // Expand card
+  const card = e.target.closest('.rule-item.expandable');
+  if (card) {
+    const id = card.dataset.ruleId;
+    const det = card.querySelector('.rule-details');
+    if (det) det.classList.toggle('open');
+  }
 });
 
 // ── Context Menu ──────────────────────────────
@@ -1060,7 +1175,14 @@ tableBody.addEventListener('contextmenu', (e) => {
   const r = state.requests.find(x => x.displayId === id);
   if (!r) return;
   state.ctxTarget = r;
-  $('#ctxHostLabel').textContent = r.host;
+  // Parse pathname from URL
+  let pathname = r.url;
+  try { pathname = new URL('http://x' + r.url).pathname; } catch {}
+  ctxMenu.dataset.host = r.host;
+  ctxMenu.dataset.method = r.method;
+  ctxMenu.dataset.url = r.url;
+  ctxMenu.dataset.direction = r.direction || 'OUT';
+  $('#ctxRouteLabel').textContent = `${r.method} ${r.host}${pathname}`;
   ctxMenu.style.left = e.clientX + 'px';
   ctxMenu.style.top = e.clientY + 'px';
   ctxMenu.classList.add('visible');
@@ -1069,29 +1191,25 @@ tableBody.addEventListener('contextmenu', (e) => {
 document.addEventListener('click', () => ctxMenu.classList.remove('visible'));
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') ctxMenu.classList.remove('visible'); });
 
-$('#ctxBlockHost').addEventListener('click', async () => {
-  if (!state.ctxTarget) return;
-  await apiAddRule({ host: state.ctxTarget.host, method: '*', path: '*', action: 'block' });
-  toggleRulesDrawer(true);
-});
-
-$('#ctxBlockRoute').addEventListener('click', async () => {
+function ctxPrefill(action) {
   if (!state.ctxTarget) return;
   const r = state.ctxTarget;
-  await apiAddRule({ host: r.host, method: r.method, path: r.url, action: 'block' });
+  let pathname = r.url;
+  try { pathname = new URL('http://x' + r.url).pathname; } catch {}
   toggleRulesDrawer(true);
-});
+  prefillRuleForm({
+    host: r.host,
+    method: r.method,
+    path: pathname,
+    action,
+    direction: r.direction || 'OUT',
+  });
+  $('#rulesForm').scrollIntoView({ behavior: 'smooth' });
+}
 
-$('#ctxMockRequest').addEventListener('click', () => {
-  if (!state.ctxTarget) return;
-  const r = state.ctxTarget;
-  toggleRulesDrawer(true);
-  $('#ruleHost').value = r.host;
-  $('#ruleMethod').value = r.method;
-  $('#rulePath').value = r.url;
-  $('#ruleAction').value = 'mock';
-  $('#mockFields').classList.add('visible');
-});
+$('#ctxBlock').addEventListener('click', () => ctxPrefill('block'));
+$('#ctxModify').addEventListener('click', () => ctxPrefill('modify'));
+$('#ctxBreakpoint').addEventListener('click', () => ctxPrefill('breakpoint'));
 
 // ── Top Bar Toggles ───────────────────────────
 $('#toggleRules').addEventListener('click', () => toggleRulesDrawer());

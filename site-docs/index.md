@@ -10,7 +10,7 @@ Intercept, inspect, and manipulate HTTP traffic from any Node.js application —
 
 - **Zero dependencies** — runs on Node.js >= 18 with nothing to install beyond peekr itself
 - **Three capture modes** — standalone proxy, automatic child-process interception, or a full live dashboard
-- **Dynamic rules engine** — block or mock requests on the fly, no restarts needed
+- **Dynamic rules engine** — block, modify, or pause (breakpoint) requests on the fly, no restarts needed
 - **Live web dashboard** — dark-themed UI with real-time SSE updates, request cards, and collapsible details
 - **Child process log capture** — see your app's stdout/stderr alongside HTTP traffic
 

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.1] - 2026-04-30
+
+### Fixed
+
+- `--mock` with `--target` now only mocks requests matching the target host; requests to other hosts are forwarded normally instead of being intercepted.
+- Forwarding logic no longer routes non-target requests to the `--target` host when a scope filter is active.
+
 ## [0.3.0] - 2026-04-30
 
 ### Added

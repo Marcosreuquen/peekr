@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-04-30
+
+### Added
+
+- **Optional port config file** — `peekr.config.json` and `.peekrrc.json` can define proxy, reverse proxy, UI, and app ports.
+- **`--config <path>` flag** — proxy, run, and UI modes can load port settings from a custom JSON config file.
+- **Common port resolver** — CLI flags now override config values, which override defaults, with validation for valid TCP port ranges.
+- **Node 18 loader fallback** — `peekr run` now uses `NODE_OPTIONS=--require` with a CJS intercept loader on older Node 18 releases that do not support `--import`.
+
+### Changed
+
+- CLI startup and request/response output now use compact terminal panels with clearer status, scope, command, and log file details.
+- Documentation now references the scoped package name `@marcosreuquen/peekr`.
+- README and site docs now document default ports `49999`, `49998`, and `49997` consistently.
+- Child process interception docs now describe both ESM and CJS loader paths.
+
+### Fixed
+
+- `--no-forward` mock responses now use the shared response logger instead of raw divider output.
+- CLI port parsing now rejects invalid configured ports instead of accepting `NaN` or out-of-range values.
+
 ## [0.2.0] - 2026-04-19
 
 ### Added

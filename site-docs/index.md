@@ -2,7 +2,7 @@
 
 **Zero-dependency HTTP capture proxy for Node.js.**
 
-Intercept, inspect, and manipulate HTTP traffic from any Node.js application — no code changes, no config files, no npm dependencies. Just Node.js stdlib.
+Intercept, inspect, and manipulate HTTP traffic from any Node.js application — no code changes, optional port config, no npm dependencies. Just Node.js stdlib.
 
 ---
 

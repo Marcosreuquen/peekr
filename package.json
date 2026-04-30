@@ -1,6 +1,6 @@
 {
   "name": "@marcosreuquen/peekr",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Zero-dependency HTTP capture proxy — intercept, log and forward requests from any app to any upstream service.",
   "type": "module",
   "bin": {

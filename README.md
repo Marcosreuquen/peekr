@@ -2,18 +2,18 @@
 
 Zero-dependency HTTP capture proxy. Intercepts outgoing calls from any app, logs the full request/response cycle, and optionally forwards to the real upstream service.
 
-No config files. No dependencies. Node.js stdlib only.
+No required config files. No dependencies. Node.js stdlib only.
 
 ## Install
 
 ```bash
-npm install -g peekr
+npm install -g @marcosreuquen/peekr
 ```
 
 Or run directly without installing:
 
 ```bash
-npx peekr --target api.example.com
+npx @marcosreuquen/peekr --target api.example.com
 ```
 
 ## Usage
@@ -28,7 +28,8 @@ peekr --no-forward [options]
 | Flag              | Description                                       | Default |
 | ----------------- | ------------------------------------------------- | ------- |
 | `--target <host>` | Upstream HTTPS hostname to forward requests to    | —       |
-| `--port <port>`   | Local port to listen on                           | 9999    |
+| `--port <port>`   | Local port to listen on                           | 49999   |
+| `--config <path>` | Read ports from a JSON config file                | —       |
 | `--no-forward`    | Capture only — don't forward, return a mock 200   | false   |
 | `--no-headers`    | Omit headers from log output                      | false   |
 | `--mock <json>`   | Custom JSON body to return in `--no-forward` mode | `{}`    |
@@ -63,14 +64,14 @@ peekr --target api.example.com --port 8080 --no-headers
 ## How it works
 
 ```
-Your app  →  peekr (localhost:9999)  →  Real upstream (HTTPS)
+Your app  →  peekr (localhost:49999)  →  Real upstream (HTTPS)
                     ↓
           Logs method, path,
           headers, payload,
           and response
 ```
 
-1. Start `peekr` and point your app's base URL env var to `http://localhost:9999`
+1. Start `peekr` and point your app's base URL env var to `http://localhost:49999`
 2. Your app sends requests normally — it just thinks the service is local
 3. `peekr` logs everything and forwards to the real upstream
 4. Restore the original URL when done
@@ -86,7 +87,7 @@ peekr --target unification.useinsider.com
 **2. Change the base URL in your app's `.env`:**
 
 ```env
-SOME_SERVICE_BASE_URL=http://localhost:9999
+SOME_SERVICE_BASE_URL=http://localhost:49999
 ```
 
 **3. Start your app and trigger the flow as usual.**
@@ -137,7 +138,8 @@ peekr run [options] -- <command>
 
 | Flag              | Description                                       | Default |
 | ----------------- | ------------------------------------------------- | ------- |
-| `--port <port>`   | Outgoing proxy port                               | 9999    |
+| `--port <port>`   | Outgoing proxy port                               | 49999   |
+| `--config <path>` | Read ports from a JSON config file                | —       |
 | `--target <host>` | Only log requests to this host (pass-through rest)| —       |
 | `--no-forward`    | Capture only — return mock 200, don't forward     | false   |
 | `--no-headers`    | Omit headers from log output                      | false   |
@@ -156,7 +158,7 @@ peekr run --target api.example.com -- npm run dev
 peekr run --no-forward -- node server.mjs
 ```
 
-**How it works:** peekr writes a tiny ESM loader to `/tmp`, injects it via `NODE_OPTIONS=--import`, and monkey-patches `node:http` and `node:https` in the child process so every outgoing request is routed to the local peekr proxy. Works with Axios, `fetch`, `undici`, `got`, and anything that goes through Node's built-in HTTP stack.
+**How it works:** peekr writes a tiny loader to `/tmp`, injects it with `NODE_OPTIONS=--import` on Node 18.19+ / 20+, and falls back to `NODE_OPTIONS=--require` on older Node 18 releases. The loader monkey-patches `node:http` and `node:https` in the child process so every outgoing request is routed to the local peekr proxy.
 
 ---
 
@@ -171,11 +173,11 @@ peekr ui [options] [-- <command>]
 ### Traffic flow
 
 ```
-External client → reverse proxy (:8888) → your app (:3000)
+External client → reverse proxy (:49998) → your app (:3000)
                                                 ↓ outgoing
-                                    peekr proxy (:9999) → real upstream
+                                    peekr proxy (:49999) → real upstream
                                          ↓
-                                  dashboard (:4000)
+                                  dashboard (:49997)
 ```
 
 ### Options
@@ -183,9 +185,10 @@ External client → reverse proxy (:8888) → your app (:3000)
 | Flag                   | Description                                    | Default |
 | ---------------------- | ---------------------------------------------- | ------- |
 | `--app-port <port>`    | Port where your app listens                    | 3000    |
-| `--port <port>`        | Outgoing proxy port                            | 9999    |
-| `--reverse-port <port>`| Reverse proxy port (in front of your app)      | 8888    |
-| `--ui-port <port>`     | Dashboard port                                 | 4000    |
+| `--port <port>`        | Outgoing proxy port                            | 49999   |
+| `--reverse-port <port>`| Reverse proxy port (in front of your app)      | 49998   |
+| `--ui-port <port>`     | Dashboard port                                 | 49997   |
+| `--config <path>`      | Read ports from a JSON config file             | —       |
 | `--target <host>`      | Only log outgoing requests to this host        | —       |
 | `--no-forward`         | Capture only — return mock 200                 | false   |
 | `--no-headers`         | Omit headers from log output                   | false   |
@@ -201,4 +204,21 @@ peekr ui --app-port 3000
 peekr ui --app-port 3000 -- npm run dev
 ```
 
-Open `http://localhost:4000` to see the live dashboard. Each request appears as a card showing direction (IN/OUT), method, host, path, status code, and collapsible body details.
+Open `http://localhost:49997` to see the live dashboard. Each request appears as a card showing direction (IN/OUT), method, host, path, status code, and collapsible body details.
+
+## Optional config file
+
+Ports can be set with flags or in `peekr.config.json` / `.peekrrc.json`. Flags take precedence over config values.
+
+```json
+{
+  "ports": {
+    "proxy": 49999,
+    "reverseProxy": 49998,
+    "ui": 49997,
+    "app": 3000
+  }
+}
+```
+
+Use a different file with `--config ./path/to/peekr.config.json`.

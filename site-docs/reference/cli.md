@@ -2,6 +2,8 @@
 
 Peekr provides four commands, each suited to a different workflow. All commands share a common set of capture flags.
 
+Ports can also be read from `peekr.config.json` or `.peekrrc.json`. Use `--config <path>` to point at a different JSON file. CLI flags always take precedence over config values.
+
 ---
 
 ## `peekr` — Standalone Proxy
@@ -25,6 +27,7 @@ peekr --target api.example.com --no-forward --mock '{"ok":true}'
 |------|-------------|---------|
 | `--target <host>` | Upstream HTTPS hostname to forward to | — |
 | `--port <port>` | Local proxy port | `49999` |
+| `--config <path>` | Read ports from a JSON config file | — |
 | `--no-forward` | Capture only, return mock 200 | `false` |
 | `--no-headers` | Omit headers from log output | `false` |
 | `--mock <json>` | Custom mock response body (used with `--no-forward`) | — |
@@ -34,7 +37,7 @@ peekr --target api.example.com --no-forward --mock '{"ok":true}'
 
 ## `peekr run` — Spawn & Intercept
 
-Spawns a child process with monkey-patched HTTP/HTTPS modules. All outgoing calls are automatically intercepted via `NODE_OPTIONS --import` — no code changes required.
+Spawns a child process with monkey-patched HTTP/HTTPS modules. Outgoing calls are automatically intercepted via `NODE_OPTIONS --import` on Node 18.19+ / 20+, or `NODE_OPTIONS --require` on older Node 18 releases — no code changes required.
 
 **When to use:** You want zero-config interception of a Node.js process without changing any URLs in your code.
 
@@ -52,6 +55,7 @@ peekr run --no-forward --log-file ./capture.log -- node server.js
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--port <port>` | Outgoing proxy port | `49999` |
+| `--config <path>` | Read ports from a JSON config file | — |
 | `--target <host>` | Only log requests to this host; pass the rest through | — |
 | `--no-forward` | Capture only, don't forward | `false` |
 | `--no-headers` | Omit headers from log output | `false` |
@@ -94,12 +98,32 @@ External client ──▶ reverse proxy (:49998) ──▶ your app (:3000)
 | `--port <port>` | Outgoing capture proxy port | `49999` |
 | `--reverse-port <port>` | Reverse proxy port (clients connect here) | `49998` |
 | `--ui-port <port>` | Dashboard web UI port | `49997` |
+| `--config <path>` | Read ports from a JSON config file | — |
 | `--target <host>` | Only log outgoing requests to this host | — |
 | `--no-forward` | Capture only, don't forward outgoing requests | `false` |
 | `--no-headers` | Omit headers from log output | `false` |
 | `--mock <json>` | Custom mock response body | — |
 | `--log-file <path>` | Write logs to a file | — |
 | `-h, --help` | Show help | — |
+
+---
+
+## Port Config File
+
+`peekr.config.json` and `.peekrrc.json` are discovered from the current working directory.
+
+```json
+{
+  "ports": {
+    "proxy": 49999,
+    "reverseProxy": 49998,
+    "ui": 49997,
+    "app": 3000
+  }
+}
+```
+
+Supported port keys are `proxy`, `reverseProxy`, `ui`, and `app`. Top-level aliases such as `proxyPort`, `reverseProxyPort`, `uiPort`, and `appPort` are also accepted.
 
 ---
 

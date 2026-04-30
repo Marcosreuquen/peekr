@@ -4,7 +4,7 @@ Thanks for your interest in contributing to peekr! This guide covers everything 
 
 ## Prerequisites
 
-- **Node.js >= 18** (ESM loader support required)
+- **Node.js >= 18**
 - **git**
 
 ## Getting Started
@@ -30,7 +30,7 @@ bin/peekr.mjs           CLI entry point and subcommand dispatch
 lib/                    Core modules
   args.mjs              CLI argument parsing helpers
   child-runner.mjs      Child process management
-  intercept-template.mjs  ESM loader generation for HTTP patching
+  intercept-template.mjs  ESM/CJS loader generation for HTTP patching
   logger.mjs            Console logging with colors
   logs-command.mjs      `peekr logs` command
   proxy-core.mjs        Outgoing HTTP proxy server
@@ -79,7 +79,7 @@ Do not add npm dependencies. Use Node.js built-in modules only. If you need func
 
 ### ESM Only
 
-All files use ES module syntax (`import`/`export`). The project has `"type": "module"` in `package.json`. Do not use `require()`.
+All source files use ES module syntax (`import`/`export`). The project has `"type": "module"` in `package.json`. The generated temporary CJS intercept is the only compatibility exception.
 
 ### No Build Step
 

@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- **Node.js >= 18** — peekr uses modern Node.js APIs (`fetch`, ESM loaders, `node:http`). Check your version:
+- **Node.js >= 18** — peekr uses modern Node.js APIs and includes a Node 18-compatible interception fallback. Check your version:
 
 ```bash
 node --version

@@ -12,8 +12,9 @@ lib/
   args.mjs               getArg, getAllArgs, hasFlag, listenOnAvailablePort helpers
   child-runner.mjs       Spawns child process with stdio piped, logs to .peekr/app.log
                           + in-memory buffer (1000 lines) + onLogEntry callback for SSE
-  intercept-template.mjs Generates ESM loader code that monkey-patches node:http/node:https,
-                          injected via NODE_OPTIONS=--import
+  config.mjs             Loads optional JSON port config and resolves CLI/config/default precedence
+  intercept-template.mjs Generates loader code that monkey-patches node:http/node:https,
+                          injected via NODE_OPTIONS=--import or --require
   logger.mjs             Colored console logging + setLogFile
   logs-command.mjs       peekr logs implementation (tail .peekr/app.log)
   proxy-core.mjs         Outgoing HTTP proxy server. Receives intercepted requests, logs them,
@@ -79,8 +80,8 @@ The proxy server (`proxy-core.mjs`) listens on a local port and receives HTTP re
 ```
   peekr run -- node app.js
     │
-    ├── Writes ESM loader to /tmp/peekr-loader.mjs
-    ├── Sets NODE_OPTIONS=--import /tmp/peekr-loader.mjs
+    ├── Writes ESM or CJS loader to /tmp/peekr-loader
+    ├── Sets NODE_OPTIONS=--import or --require /tmp/peekr-loader
     ├── Starts proxy server (localhost:49999)
     └── Spawns child process
           │
@@ -93,7 +94,7 @@ The proxy server (`proxy-core.mjs`) listens on a local port and receives HTTP re
         Upstream server
 ```
 
-The intercept template (`intercept-template.mjs`) generates an ESM loader that patches `node:http` and `node:https` request methods. The child process's outgoing traffic is transparently routed through the proxy without any code changes in the target application.
+The intercept template (`intercept-template.mjs`) generates an ESM loader for Node 18.19+ / 20+, and a CJS loader for older Node 18 releases where `--import` is rejected in `NODE_OPTIONS`. The loader patches `node:http` and `node:https` request methods. The child process's outgoing traffic is transparently routed through the proxy without any code changes in the target application.
 
 Child process stdout/stderr are piped to:
 - `.peekr/app.log` (file)
@@ -188,7 +189,7 @@ peekr uses only Node.js built-in modules (`node:http`, `node:https`, `node:fs`, 
 
 ### ESM Only
 
-The project uses ES modules exclusively (`"type": "module"` in `package.json`). This aligns with Node.js's module direction and enables the `--import` loader mechanism used for HTTP interception.
+The project uses ES modules exclusively (`"type": "module"` in `package.json`). Runtime interception still generates a temporary CJS loader as a compatibility fallback for Node 18 releases before 18.19, because those versions reject `--import` in `NODE_OPTIONS`.
 
 ### Single HTML Dashboard
 
@@ -198,9 +199,13 @@ The entire dashboard UI is a single `index.html` file with inline CSS and JavaSc
 
 All captured requests, logs, and rules live in memory. Nothing persists across restarts. This is intentional — peekr is a development tool, not a monitoring system. Simplicity over durability.
 
-### Monkey-Patching via ESM Loader
+### Monkey-Patching via Loader
 
-The `--import` flag injects an ESM loader that patches `http.request`, `http.get`, `https.request`, and `https.get` at the module level. A double-patch guard prevents re-patching if the loader is imported multiple times.
+The `--import` or `--require` flag injects a temporary loader that patches `http.request` and `https.request` at the module level. A double-patch guard prevents re-patching if the loader is imported multiple times.
+
+### Port Configuration
+
+The default ports are `49999` for the outgoing proxy, `49998` for the reverse proxy, `49997` for the dashboard, and `3000` for the app target. `config.mjs` resolves values in this order: CLI flag, JSON config file, default. Config files are discovered as `peekr.config.json` or `.peekrrc.json`, or explicitly passed with `--config <path>`.
 
 ### Loop Detection
 

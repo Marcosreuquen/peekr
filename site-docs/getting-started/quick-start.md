@@ -106,7 +106,7 @@ peekr run --target api.example.com -- npm run start:dev
 Only requests to `api.example.com` are logged; everything else passes through untouched.
 
 !!! info "How it works"
-    peekr writes a tiny ESM loader to `/tmp` and injects it via `NODE_OPTIONS=--import`. This patches Node's HTTP stack in the child process. Works with Axios, `fetch`, `undici`, `got`, and anything built on `node:http`.
+    peekr writes a tiny loader to `/tmp` and injects it via `NODE_OPTIONS=--import` on Node 18.19+ / 20+, or `NODE_OPTIONS=--require` on older Node 18 releases. This patches Node's HTTP stack in the child process.
 
 ---
 
@@ -161,6 +161,35 @@ Note: in this mode, only incoming traffic is captured. To capture outgoing traff
 
 !!! tip
     The dashboard uses Server-Sent Events (SSE) for real-time updates — no polling, no WebSocket setup.
+
+### Custom ports
+
+Use flags for one-off changes:
+
+```bash
+peekr ui --app-port 8080 --port 51000 --reverse-port 51001 --ui-port 51002 -- npm run start:dev
+```
+
+Or put the ports in `peekr.config.json`:
+
+```json
+{
+  "ports": {
+    "proxy": 51000,
+    "reverseProxy": 51001,
+    "ui": 51002,
+    "app": 8080
+  }
+}
+```
+
+Then run:
+
+```bash
+peekr ui -- npm run start:dev
+```
+
+Flags override values from the config file.
 
 ---
 

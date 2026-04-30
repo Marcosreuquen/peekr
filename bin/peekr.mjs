@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { getArg, hasFlag } from '../lib/args.mjs';
+import { loadConfig, resolvePort } from '../lib/config.mjs';
 
 const subcommand = process.argv[2];
 
@@ -21,6 +22,7 @@ How it works:
 
 Options:
   --port <port>      Outgoing proxy port                        (default: 49999)
+  --config <path>    Read ports from a JSON config file
   --target <host>    Only log requests to this host; pass rest through
   --no-forward       Capture only — return mock 200, don't forward
   --no-headers       Omit headers from log output
@@ -70,6 +72,7 @@ Options:
   --port <port>          Outgoing proxy port                   (default: 49999)
   --reverse-port <port>  Reverse proxy port (send IN traffic here) (default: 49998)
   --ui-port <port>       Dashboard port                        (default: 49997)
+  --config <path>        Read ports from a JSON config file
   --target <host>        Only log outgoing requests to this host
   --no-forward           Capture only — return mock 200
   --no-headers           Omit headers from log output
@@ -132,7 +135,7 @@ The log file is located at .peekr/app.log in the current directory.
    *
    * Options:
    *   --target <host>   Upstream HTTPS hostname to forward to
-   *   --port <port>     Local port to listen on          (default: 9999)
+   *   --port <port>     Local port to listen on          (default: 49999)
    *   --no-forward      Capture only, return mock 200    (default: false)
    *   --no-headers      Omit headers from log output     (default: false)
    *   --mock <json>     Custom mock response body for --no-forward mode
@@ -147,7 +150,7 @@ The log file is located at .peekr/app.log in the current directory.
 
   if (args.includes("-h") || args.includes("--help")) {
     console.log(`
-peekr v0.1.0 — HTTP Capture Proxy
+peekr v0.3.0 — HTTP Capture Proxy
 
 Usage:
   peekr --target <host> [options]          Proxy mode (manual .env change)
@@ -170,6 +173,7 @@ Subcommands:
 Proxy mode options (backward compat):
   --target <host>   Upstream HTTPS hostname to forward requests to
   --port <port>     Local port to listen on (default: 49999)
+  --config <path>   Read ports from a JSON config file
   --no-forward      Capture only — don't forward, return a mock 200
   --no-headers      Omit request/response headers from log output
   --mock <json>     Custom JSON body to return in --no-forward mode
@@ -185,7 +189,8 @@ Examples:
   }
 
   const TARGET_HOST = getArg(args, "target");
-  const PORT = parseInt(getArg(args, "port") || "49999", 10);
+  const config = loadConfig(args);
+  const PORT = resolvePort(args, config, "port", ["proxy", "proxyPort", "port"], 49999);
   const NO_FORWARD = hasFlag(args, "no-forward");
   const NO_HEADERS = hasFlag(args, "no-headers");
   const MOCK_BODY = getArg(args, "mock");

@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.2] - 2026-08-20
+
+### Changed
+
+- CLI help now reads the displayed version from `package.json` instead of using a hardcoded value.
+
+### Fixed
+
+- `peekr ui` now keeps the terminal in canonical mode so `Ctrl+C` reliably stops peekr and its child process.
+
 ## [0.3.1] - 2026-04-30
 
 ### Fixed

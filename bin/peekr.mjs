@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 
+import { readFileSync } from 'node:fs';
 import { getArg, hasFlag } from '../lib/args.mjs';
 import { loadConfig, resolvePort } from '../lib/config.mjs';
 
+const { version: packageVersion } = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+);
 const subcommand = process.argv[2];
 
 if (subcommand === 'run') {
@@ -150,7 +154,7 @@ The log file is located at .peekr/app.log in the current directory.
 
   if (args.includes("-h") || args.includes("--help")) {
     console.log(`
-peekr v0.3.0 — HTTP Capture Proxy
+peekr v${packageVersion} — HTTP Capture Proxy
 
 Usage:
   peekr --target <host> [options]          Proxy mode (manual .env change)

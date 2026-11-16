@@ -40,6 +40,7 @@
     border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 0.75rem; font-family: var(--font-sans);
   }
   .top-bar .btn:hover { color: var(--text); border-color: var(--text-dim); }
+  .top-bar .intercept-on { color: var(--yellow); border-color: var(--yellow); background: #d2992215; }
   .top-bar .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); display: inline-block; }
   .top-bar .status-dot.connected { background: var(--green); }
 
@@ -347,6 +348,33 @@
   .bp-edit-area label { font-size: 0.65rem; color: var(--text-dim); font-family: var(--font-sans); }
   .bp-edit-area input { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px; font-size: 0.7rem; font-family: var(--font-mono); width: 70px; }
   .bp-timed-out { opacity: 0.5; font-style: italic; font-size: 0.65rem; color: var(--text-dim); }
+  .workspace-only { display: none; }
+  body.workspace-mode .workspace-only { display: revert; }
+  .workspace-dialog { color: var(--text); background: var(--bg-alt); border: 1px solid var(--border); border-radius: 6px; padding: 16px; width: min(420px, 95vw); margin: auto; font: 0.78rem var(--font-sans); }
+  .workspace-dialog::backdrop { background: #0009; }
+  .workspace-dialog h2 { color: var(--text-bright); font-size: 0.9rem; margin-bottom: 12px; }
+  .workspace-dialog label { display: block; color: var(--text-dim); margin: 10px 0 4px; }
+  .workspace-dialog input { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 7px; }
+  .workspace-dialog button { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 6px 10px; cursor: pointer; }
+  .workspace-dialog .service-list { max-height: 30vh; overflow: auto; }
+  .workspace-dialog .service-item { border-bottom: 1px solid var(--border); padding: 8px 0; line-height: 1.6; }
+  .workspace-dialog .service-ports { color: var(--text-dim); font-family: var(--font-mono); overflow-wrap: anywhere; }
+  .workspace-dialog .service-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 5px; }
+  .workspace-dialog .service-actions button { padding: 3px 7px; }
+  .workspace-dialog select { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 7px; }
+  .graph-wrap { grid-column: 2; grid-row: 2; overflow: auto; background: var(--bg); display: none; position: relative; }
+  body.graph-mode .table-wrap { display: none; }
+  body.graph-mode .graph-wrap { display: block; }
+  .graph-canvas { position: relative; min-height: 100%; background-image: radial-gradient(#30363d 1px, transparent 1px); background-size: 22px 22px; }
+  .graph-canvas svg { position: absolute; inset: 0; pointer-events: none; }
+  .graph-canvas .graph-edge { pointer-events: stroke; cursor: pointer; }
+  .graph-canvas .graph-edge:hover { stroke: var(--yellow); stroke-width: 5; }
+  .graph-node { position: absolute; width: 180px; height: 68px; text-align: left; background: var(--bg-alt); color: var(--text-bright); border: 1px solid var(--border); border-left: 3px solid var(--blue); border-radius: 4px; padding: 10px; font: 0.75rem var(--font-sans); cursor: pointer; overflow: hidden; }
+  .graph-node:hover, .graph-node.selected { border-color: var(--blue); }
+  .graph-node.external { border-left-color: var(--yellow); }
+  .graph-node strong, .graph-node small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .graph-node small { color: var(--text-dim); margin-top: 6px; }
+  .top-bar .btn.active { color: var(--blue); border-color: var(--blue); }
 </style>
 </head>
 <body>
@@ -355,6 +383,13 @@
 <div class="top-bar">
   <span class="logo">peekr</span>
   <span class="status-dot" id="statusDot"></span>
+  <button class="btn" id="interceptToggle" aria-pressed="false" title="Pause incoming and outgoing requests">Intercept: Off</button>
+  <button class="btn workspace-only" id="workspaceButton" title="Manage workspace services">Services</button>
+  <button class="btn workspace-only" id="workspaceSave" title="Save workspace configuration">Save workspace</button>
+  <select id="filterService" class="workspace-only" aria-label="Filter by service"><option value="">Service</option></select>
+  <button class="btn workspace-only" id="graphToggle" aria-pressed="false">Graph</button>
+  <button class="btn workspace-only" id="graphConnect">Connect</button>
+  <button class="btn workspace-only" id="clearConnection" title="Clear connection filter" style="display:none">Clear connection</button>
   <select id="filterMethod">
     <option value="">Method</option>
     <option>GET</option><option>POST</option><option>PUT</option>
@@ -388,6 +423,7 @@
     <thead>
       <tr>
         <th class="col-id" data-sort="displayId"># <span class="sort-arrow"></span></th>
+        <th class="workspace-only" data-sort="service">Service <span class="sort-arrow"></span></th>
         <th data-sort="direction">Dir <span class="sort-arrow"></span></th>
         <th class="col-method" data-sort="method">Method <span class="sort-arrow"></span></th>
         <th data-sort="host">Host <span class="sort-arrow"></span></th>
@@ -401,6 +437,39 @@
   </table>
   <div class="empty-state" id="emptyState">Waiting for requests...</div>
 </div>
+
+<div class="graph-wrap" id="graphWrap"><div class="graph-canvas" id="graphCanvas"></div></div>
+
+<dialog class="workspace-dialog" id="workspaceDialog">
+  <h2 id="workspaceTitle">Workspace</h2>
+  <div class="service-list" id="workspaceServices"></div>
+  <form id="workspaceForm">
+    <label for="workspaceServiceName">Service name</label><input id="workspaceServiceName" required pattern="[a-zA-Z0-9][a-zA-Z0-9_-]*">
+    <label for="workspaceAppPort">Application port</label><input id="workspaceAppPort" type="number" min="1" max="65535" value="3000" required>
+    <label for="workspaceProject">Project directory</label><input id="workspaceProject" placeholder="Workspace directory">
+    <label for="workspaceCommand">Command (JSON array)</label><input id="workspaceCommand" placeholder='["npm", "start"]'>
+    <p id="workspaceError" role="alert" style="color:var(--red);margin:8px 0"></p>
+    <button type="submit" id="workspaceSubmit">Add service</button> <button type="button" id="workspaceCancelEdit" hidden>Cancel edit</button> <button type="button" id="workspaceClose">Close</button>
+  </form>
+</dialog>
+<dialog class="workspace-dialog" id="saveWorkspaceDialog">
+  <h2>Save workspace</h2>
+  <form id="saveWorkspaceForm"><label for="saveWorkspaceFile">File path</label><input id="saveWorkspaceFile" required value="peekr-workspace.json"><p id="saveWorkspaceError" role="alert" style="color:var(--red);margin:8px 0"></p><button type="submit">Save</button> <button type="button" id="saveWorkspaceClose">Close</button></form>
+</dialog>
+<dialog class="workspace-dialog" id="connectionDialog">
+  <h2>Connection rule</h2>
+  <div id="connectionSummary" class="service-ports"></div>
+  <form id="connectionForm">
+    <label for="connectionSource">Source service</label><select id="connectionSource" required></select>
+    <label for="connectionHost">Destination host</label><input id="connectionHost" required placeholder="api.example.com">
+    <label for="connectionPort">Destination port</label><input id="connectionPort" type="number" min="1" max="65535" required value="443">
+    <label for="connectionAction">Action</label><select id="connectionAction"><option value="block">Block</option><option value="redirect">Redirect</option><option value="modify">Modify response body</option><option value="breakpoint">Breakpoint</option></select>
+    <label for="connectionTarget">Redirect origin</label><input id="connectionTarget" placeholder="http://localhost:3000">
+    <label for="connectionBody">Response body (modify)</label><input id="connectionBody" placeholder="Optional response body">
+    <p id="connectionError" role="alert" style="color:var(--red);margin:8px 0"></p>
+    <button type="submit">Save rule</button> <button type="button" id="connectionTraffic">View traffic</button> <button type="button" id="connectionClose">Close</button>
+  </form>
+</dialog>
 
 <!-- ── Rules Drawer ──────────────────────────── -->
 <div class="rules-drawer" id="rulesDrawer">
@@ -435,6 +504,7 @@
           <option value="block">Block</option>
           <option value="modify">Modify</option>
           <option value="breakpoint">Breakpoint</option>
+          <option value="redirect">Redirect</option>
         </select>
       </div>
       <div>
@@ -445,6 +515,8 @@
         </select>
       </div>
     </div>
+    <div class="form-row workspace-only"><div><div class="form-label">Source service (OUT)</div><input type="text" id="ruleSourceService" placeholder="Any"></div><div><div class="form-label">Destination port</div><input type="number" id="ruleDestinationPort" min="1" max="65535" placeholder="Any"></div></div>
+    <div id="redirectFields" style="display:none"><div class="form-label">Redirect origin</div><input type="text" id="ruleRedirectUrl" placeholder="http://localhost:3000"></div>
     <!-- modifyConfig section -->
     <div class="modify-fields" id="modifyFields">
       <div class="modify-section">
@@ -527,6 +599,8 @@
   <div class="bp-panel-header">
     Breakpoints
     <span class="bp-count-badge" id="bpPanelBadge" style="display:none">0</span>
+    <button class="bp-btn primary" id="continueAll">Continue all</button>
+    <button class="bp-btn danger" id="blockAll">Block all</button>
     <button class="close-btn" onclick="toggleBpPanel()">&#x2715;</button>
   </div>
   <div class="bp-list" id="bpList">
@@ -538,7 +612,8 @@
 // ── State ─────────────────────────────────────────
 const state = {
   requests: [],
-  filters: { method: '', status: '', host: '', search: '', dir: '' },
+  filters: { method: '', status: '', host: '', search: '', dir: '', service: '' },
+  connectionFilter: null,
   sortBy: 'displayId', sortDir: 'desc',
   selectedId: null,
   activeTab: 'headers',
@@ -572,6 +647,13 @@ const filterHost = $('#filterHost');
 const rulesDrawer = $('#rulesDrawer');
 const rulesList = $('#rulesList');
 const ctxMenu = $('#ctxMenu');
+let workspaceServices = [];
+let editingService = null;
+let graphEdges = [];
+let selectedConnection = null;
+let workspacePositions = {};
+let graphDrag = null;
+let graphDragged = false;
 
 // ── Utilities ─────────────────────────────────────
 function escHtml(s) {
@@ -613,7 +695,9 @@ async function apiAddRule(data) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  return res.json();
+  const result = await res.json();
+  if (!res.ok) throw new Error(result.error || 'Could not add rule');
+  return result;
 }
 
 async function apiDeleteRule(id) {
@@ -627,6 +711,8 @@ function matchesFilters(r) {
   if (f.dir && (r.direction || 'OUT') !== f.dir) return false;
   if (f.status && !String(r.statusCode).startsWith(f.status)) return false;
   if (f.host && r.host !== f.host) return false;
+  if (f.service && r.service !== f.service) return false;
+  if (state.connectionFilter && (r.service !== state.connectionFilter.sourceService || r.host !== state.connectionFilter.host || Number(r.destinationPort) !== state.connectionFilter.port || r.direction !== 'OUT')) return false;
   if (f.search) {
     const q = f.search.toLowerCase();
     const hay = `${r.method} ${r.host} ${r.url} ${r.statusCode}`.toLowerCase();
@@ -680,11 +766,12 @@ function renderTable() {
     const dir = r.direction || 'OUT';
     html += `<tr class="${sel}" data-id="${r.displayId}">
       <td class="col-id">${r.displayId}</td>
+      <td class="workspace-only">${escHtml(r.service || '-')}</td>
       <td><span class="dir-badge dir-${escHtml(dir)}">${escHtml(dir)}</span></td>
       <td><span class="method-badge method-${escHtml(r.method)}">${escHtml(r.method)}</span></td>
       <td>${escHtml(r.host)}</td>
       <td title="${escHtml(r.url)}">${escHtml(r.url)}</td>
-      <td class="${statusClass(r.statusCode)}">${r.statusCode}${r.ruleAction === 'blocked' ? ' <span class="rule-badge rule-badge-blocked">BLK</span>' : r.ruleAction === 'mocked' ? ' <span class="rule-badge rule-badge-mocked">MCK</span>' : ''}</td>
+      <td class="${r.statusCode == null ? '' : statusClass(r.statusCode)}">${r.statusCode == null ? 'Pending' : r.statusCode}${r.ruleAction === 'blocked' ? ' <span class="rule-badge rule-badge-blocked">BLK</span>' : r.ruleAction === 'mocked' ? ' <span class="rule-badge rule-badge-mocked">MCK</span>' : ''}</td>
       <td class="col-dur">${r.durationMs != null ? r.durationMs : '-'}</td>
       <td class="col-ts">${fmtTime(r.timestamp)}</td>
     </tr>`;
@@ -704,12 +791,13 @@ function renderDetail() {
   $('#detailMethod').className = `method-badge method-${r.method}`;
   $('#detailMethod').textContent = r.method;
   $('#detailStatus').className = statusClass(r.statusCode);
-  $('#detailStatus').textContent = r.statusCode;
+  $('#detailStatus').textContent = r.statusCode == null ? 'Pending' : r.statusCode;
   $('#detailUrl').textContent = `${r.host}${r.url}`;
   $('#detailMeta').innerHTML = `
     <span>Duration: ${r.durationMs != null ? r.durationMs + 'ms' : 'n/a'}</span>
     <span>Size: ${r.responseSize != null ? (r.responseSize > 1024 ? (r.responseSize/1024).toFixed(1)+'KB' : r.responseSize+'B') : 'n/a'}</span>
     <span>Direction: ${escHtml(dir)}</span>
+    ${r.service ? `<span>Service: ${escHtml(r.service)}</span>` : ''}
     <span>${fmtTime(r.timestamp)}</span>
   `;
 
@@ -799,13 +887,15 @@ function renderRules() {
       else detailsHtml = `<div class="rule-details" id="rd-${escHtml(r.id)}"><span style="color:var(--text-dim)">no overrides</span></div>`;
     } else if (r.action === 'breakpoint') {
       detailsHtml = `<div class="rule-details" id="rd-${escHtml(r.id)}"><dl><dt>timeout</dt><dd>${escHtml(String(r.timeoutMs || 30000))}ms</dd></dl></div>`;
+    } else if (r.action === 'redirect') {
+      detailsHtml = `<div class="rule-details" id="rd-${escHtml(r.id)}"><dl><dt>destination</dt><dd>${escHtml(r.redirectUrl)}</dd></dl></div>`;
     }
 
     html += `<div class="rule-item expandable" data-rule-id="${escHtml(r.id)}">
       <span class="rule-action ${actionCls}">${escHtml(r.action)}</span>
       <span class="dir-badge dir-${escHtml(dir)}">${escHtml(dir)}</span>
       ${noFwdBadge}
-      <span class="rule-host">${escHtml(r.host)}</span>
+      <span class="rule-host">${r.sourceService ? escHtml(r.sourceService) + ' → ' : ''}${escHtml(r.host)}${r.destinationPort ? ':' + escHtml(r.destinationPort) : ''}</span>
       <span class="rule-route">${escHtml(route)}</span>
       <button class="rule-edit" data-rule-id="${escHtml(r.id)}" title="Edit">&#9998;</button>
       <button class="rule-delete" data-rule-id="${escHtml(r.id)}">&times;</button>
@@ -882,11 +972,260 @@ function updateToggleButtons() {
 const es = new EventSource('/events');
 es.onopen = () => { statusDot.classList.add('connected'); };
 es.onerror = () => { statusDot.classList.remove('connected'); };
+let interceptEnabled = false;
+es.addEventListener('intercept-change', event => {
+  interceptEnabled = JSON.parse(event.data).enabled;
+  const button = $('#interceptToggle');
+  button.textContent = `Intercept: ${interceptEnabled ? 'On' : 'Off'}`;
+  button.setAttribute('aria-pressed', String(interceptEnabled));
+  button.classList.toggle('intercept-on', interceptEnabled);
+});
+$('#interceptToggle').addEventListener('click', async event => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  try {
+    const response = await fetch('/api/intercept', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: !interceptEnabled }) });
+    if (!response.ok) throw new Error('Could not change intercept mode');
+  } catch (err) { alert(err.message); }
+  finally { button.disabled = false; }
+});
+
+async function refreshWorkspace() {
+  try {
+    const response = await fetch('/workspace');
+    if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) return;
+    const workspace = await response.json();
+    workspaceServices = workspace.services;
+    if (!graphDrag) workspacePositions = workspace.graphPositions || {};
+    if (!graphDrag && document.body.classList.contains('graph-mode')) renderGraph();
+    document.body.classList.add('workspace-mode');
+    $('#workspaceTitle').textContent = `Workspace: ${workspace.name}`;
+    $('#workspaceServices').innerHTML = workspace.services.map(service => `<div class="service-item"><strong>${escHtml(service.name)}</strong> <span class="service-ports">${escHtml(service.status || 'external')} · ${service.reachable ? 'reachable' : 'unreachable'}</span><div class="service-ports">IN :${escHtml(service.reversePort)} → app :${escHtml(service.appPort)} · OUT :${escHtml(service.proxyPort)}</div><div class="service-ports">Observed: IN ${service.capture?.incoming ? 'yes' : 'no'} · OUT ${service.capture?.outgoing ? 'yes' : 'no'} · HTTPS ${service.capture?.https ? 'yes' : 'no'}</div><div class="service-actions"><button type="button" data-service="${escHtml(service.name)}" data-action="edit">Edit</button>${service.status === 'running' || service.status === 'starting' ? `<button type="button" data-service="${escHtml(service.name)}" data-action="stop">Stop</button>` : service.command?.length ? `<button type="button" data-service="${escHtml(service.name)}" data-action="start">Start</button>` : ''}<button type="button" data-service="${escHtml(service.name)}" data-action="remove">Remove</button></div></div>`).join('') || '<div class="service-item">No services</div>';
+    const filter = $('#filterService');
+    const selected = filter.value;
+    filter.innerHTML = '<option value="">Service</option>' + workspace.services.map(service => `<option value="${escHtml(service.name)}">${escHtml(service.name)}</option>`).join('');
+    filter.value = selected;
+  } catch (err) { console.error('Unable to load workspace', err); }
+}
+$('#workspaceButton').addEventListener('click', () => { refreshWorkspace(); $('#workspaceDialog').showModal(); });
+$('#workspaceSave').addEventListener('click', () => { $('#saveWorkspaceError').textContent = ''; $('#saveWorkspaceDialog').showModal(); });
+$('#saveWorkspaceClose').addEventListener('click', () => $('#saveWorkspaceDialog').close());
+$('#saveWorkspaceForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  try {
+    const response = await fetch('/workspace/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ file: $('#saveWorkspaceFile').value }) });
+    const result = await response.json(); if (!response.ok) throw new Error(result.error);
+    $('#saveWorkspaceDialog').close();
+  } catch (err) { $('#saveWorkspaceError').textContent = err.message; }
+});
+$('#workspaceClose').addEventListener('click', () => $('#workspaceDialog').close());
+function clearServiceForm() { editingService = null; $('#workspaceForm').reset(); $('#workspaceSubmit').textContent = 'Add service'; $('#workspaceCancelEdit').hidden = true; $('#workspaceError').textContent = ''; }
+$('#workspaceCancelEdit').addEventListener('click', clearServiceForm);
+$('#workspaceServices').addEventListener('click', async event => {
+  const button = event.target.closest('[data-action]');
+  if (!button) return;
+  const service = workspaceServices.find(item => item.name === button.dataset.service);
+  if (!service) return;
+  if (button.dataset.action === 'edit') {
+    editingService = service.name;
+    $('#workspaceServiceName').value = service.name; $('#workspaceAppPort').value = service.appPort; $('#workspaceProject').value = service.project || ''; $('#workspaceCommand').value = service.command?.length ? JSON.stringify(service.command) : '';
+    $('#workspaceSubmit').textContent = 'Save changes'; $('#workspaceCancelEdit').hidden = false; return;
+  }
+  if (button.dataset.action === 'remove' && !confirm(`Remove ${service.name} from the workspace? ${service.status === 'running' ? 'Its Peekr-managed process will be stopped.' : 'External processes will keep running.'}`)) return;
+  try {
+    const action = button.dataset.action;
+    const response = await fetch(`/services/${encodeURIComponent(service.name)}${action === 'remove' ? '' : `/${action}`}`, { method: action === 'remove' ? 'DELETE' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(action === 'remove' ? { stop: true } : {}) });
+    const result = await response.json(); if (!response.ok) throw new Error(result.error);
+    if (editingService === service.name && action === 'remove') clearServiceForm();
+    await refreshWorkspace();
+  } catch (err) { $('#workspaceError').textContent = err.message; }
+});
+$('#workspaceForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  const error = $('#workspaceError');
+  error.textContent = '';
+  try {
+    const command = $('#workspaceCommand').value.trim() ? JSON.parse($('#workspaceCommand').value) : [];
+    if (!Array.isArray(command) || command.some(item => typeof item !== 'string' || !item)) throw new Error('Command must be a JSON array of non-empty strings');
+    const response = await fetch(editingService ? `/services/${encodeURIComponent(editingService)}` : '/services', { method: editingService ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: $('#workspaceServiceName').value, appPort: Number($('#workspaceAppPort').value), project: $('#workspaceProject').value || undefined, command, persist: true }) });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error);
+    clearServiceForm();
+    await refreshWorkspace();
+    if (result.persistenceError) error.textContent = `Service added, but configuration could not be saved: ${result.persistenceError}`;
+  } catch (err) { error.textContent = err.message; }
+});
+refreshWorkspace();
+setInterval(() => { if (document.body.classList.contains('workspace-mode')) refreshWorkspace(); }, 3000);
+
+function renderGraph() {
+  const nodes = workspaceServices.map(service => ({ id: `service:${service.name}`, label: service.name, detail: `app :${service.appPort} · in :${service.reversePort}`, service: service.name }));
+  const edges = new Map();
+  for (const request of state.requests) {
+    if (request.direction !== 'OUT' || !request.service || !request.destinationPort) continue;
+    const local = ['localhost', '127.0.0.1', '::1'].includes(request.host);
+    const destination = local && workspaceServices.find(service => service.reversePort === Number(request.destinationPort) || service.appPort === Number(request.destinationPort));
+    const target = destination ? `service:${destination.name}` : `external:${request.host}:${request.destinationPort}`;
+    if (!destination && !nodes.some(node => node.id === target)) nodes.push({ id: target, label: request.host, detail: `external :${request.destinationPort}`, external: true });
+    const source = `service:${request.service}`;
+    if (!nodes.some(node => node.id === source)) continue;
+    const key = `${source}\u0000${target}`;
+    const edge = edges.get(key) || { source, target, sourceService: request.service, host: request.host, port: Number(request.destinationPort), count: 0 };
+    edge.count++;
+    edges.set(key, edge);
+  }
+  for (const rule of state.rules) {
+    if (!rule.sourceService || !rule.destinationPort || rule.direction !== 'OUT') continue;
+    let targetHost = rule.host, targetPort = rule.destinationPort;
+    if (rule.action === 'redirect' && rule.redirectUrl) {
+      try { const url = new URL(rule.redirectUrl); targetHost = url.hostname; targetPort = Number(url.port || (url.protocol === 'https:' ? 443 : 80)); } catch {}
+    }
+    const local = ['localhost', '127.0.0.1', '::1'].includes(targetHost);
+    const destination = local && workspaceServices.find(service => service.reversePort === targetPort || service.appPort === targetPort);
+    const target = destination ? `service:${destination.name}` : `external:${targetHost}:${targetPort}`;
+    const source = `service:${rule.sourceService}`;
+    if (!nodes.some(node => node.id === source)) continue;
+    if (!destination && !nodes.some(node => node.id === target)) nodes.push({ id: target, label: targetHost, detail: `external :${targetPort}`, external: true });
+    const key = `${source}\u0000${target}`;
+    const edge = edges.get(key) || { source, target, sourceService: rule.sourceService, host: rule.host, port: Number(rule.destinationPort), count: 0 };
+    edge.ruleAction = rule.action;
+    edges.set(key, edge);
+  }
+  const canvas = $('#graphCanvas');
+  const columns = Math.max(1, Math.floor((Math.max($('#graphWrap').clientWidth, 280) - 40) / 260));
+  const positions = new Map(nodes.map((node, i) => [node.id, node.service && workspacePositions[node.service] ? workspacePositions[node.service] : { x: 40 + (i % columns) * 260, y: 110 + Math.floor(i / columns) * 180 }]));
+  const width = Math.max($('#graphWrap').clientWidth, ...[...positions.values()].map(pos => pos.x + 220), 280);
+  const height = Math.max($('#graphWrap').clientHeight, ...[...positions.values()].map(pos => pos.y + 150), 300);
+  canvas.style.width = `${width}px`;
+  canvas.style.height = `${height}px`;
+  let svg = `<svg width="${width}" height="${height}" aria-hidden="true"><defs><marker id="graphArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#58a6ff"></path></marker></defs>`;
+  graphEdges = [...edges.values()];
+  for (const edge of edges.values()) {
+    const edgeIndex = graphEdges.indexOf(edge);
+    const edgeLabel = edge.ruleAction ? `${edge.count} ${edge.ruleAction}` : String(edge.count);
+    const from = positions.get(edge.source), to = positions.get(edge.target);
+    if (!from || !to) continue;
+    if (edge.source === edge.target) {
+      svg += `<path class="graph-edge" data-edge="${edgeIndex}" d="M ${from.x + 140} ${from.y} C ${from.x + 210} ${from.y - 65}, ${from.x + 30} ${from.y - 65}, ${from.x + 40} ${from.y}" fill="none" stroke="#58a6ff" stroke-width="2" marker-end="url(#graphArrow)"></path>`;
+      continue;
+    }
+    if (from.y === to.y && Math.abs(from.x - to.x) > 260) {
+      const sx = from.x + 90, ex = to.x + 90;
+      const routeY = from.y - 85;
+      svg += `<path class="graph-edge" data-edge="${edgeIndex}" d="M ${sx} ${from.y} C ${sx} ${routeY}, ${ex} ${routeY}, ${ex} ${to.y}" fill="none" stroke="#58a6ff" stroke-width="2" marker-end="url(#graphArrow)"></path><text x="${(sx + ex) / 2}" y="${from.y - 68}" fill="#c9d1d9" font-size="12" text-anchor="middle">${escHtml(edgeLabel)}</text>`;
+      continue;
+    }
+    const x1 = from.x + 90, y1 = from.y + 34, x2 = to.x + 90, y2 = to.y + 34;
+    const dx = x2 - x1, dy = y2 - y1;
+    const scale = Math.max(Math.abs(dx) / 100, Math.abs(dy) / 45);
+    const sx = x1 + dx / scale, sy = y1 + dy / scale, ex = x2 - dx / scale, ey = y2 - dy / scale;
+    const reciprocal = edges.has(`${edge.target}\u0000${edge.source}`);
+    const length = Math.hypot(dx, dy);
+    const bend = reciprocal ? 28 : 0;
+    const cx = (sx + ex) / 2 - dy / length * bend;
+    const cy = (sy + ey) / 2 + dx / length * bend;
+    const labelX = (sx + 2 * cx + ex) / 4;
+    const labelY = (sy + 2 * cy + ey) / 4 - 5;
+    svg += `<path class="graph-edge" data-edge="${edgeIndex}" d="M ${sx} ${sy} Q ${cx} ${cy} ${ex} ${ey}" fill="none" stroke="#58a6ff" stroke-width="2" marker-end="url(#graphArrow)"></path><text x="${labelX}" y="${labelY}" fill="#c9d1d9" font-size="12" text-anchor="middle">${escHtml(edgeLabel)}</text>`;
+  }
+  svg += '</svg>';
+  canvas.innerHTML = svg + nodes.map(node => { const pos = positions.get(node.id); return `<button class="graph-node${node.external ? ' external' : ''}${state.filters.service === node.service ? ' selected' : ''}" style="left:${pos.x}px;top:${pos.y}px" data-graph-service="${escHtml(node.service || '')}" title="${escHtml(node.label)}"><strong>${escHtml(node.label)}</strong><small>${escHtml(node.detail)}</small></button>`; }).join('');
+}
+$('#graphToggle').addEventListener('click', event => {
+  const active = document.body.classList.toggle('graph-mode');
+  event.currentTarget.classList.toggle('active', active);
+  event.currentTarget.setAttribute('aria-pressed', String(active));
+  if (active) renderGraph();
+});
+$('#graphCanvas').addEventListener('click', event => {
+  if (graphDragged) { graphDragged = false; return; }
+  const edgeNode = event.target.closest('[data-edge]');
+  if (edgeNode) {
+    selectedConnection = graphEdges[Number(edgeNode.dataset.edge)];
+    openConnectionForm(selectedConnection);
+    return;
+  }
+  const node = event.target.closest('[data-graph-service]');
+  if (!node || !node.dataset.graphService) return;
+  state.filters.service = node.dataset.graphService;
+  $('#filterService').value = node.dataset.graphService;
+  $('#graphToggle').click();
+  scheduleRender();
+});
+function openConnectionForm(edge = null) {
+  $('#connectionSource').innerHTML = workspaceServices.map(service => `<option value="${escHtml(service.name)}">${escHtml(service.name)}</option>`).join('');
+  $('#connectionSource').value = edge?.sourceService || workspaceServices[0]?.name || '';
+  $('#connectionHost').value = edge?.host || '';
+  $('#connectionPort').value = edge?.port || 443;
+  const existing = edge && state.rules.find(item => item.sourceService === edge.sourceService && item.host === edge.host && Number(item.destinationPort) === edge.port && item.direction === 'OUT' && item.method === '*' && item.path === '*');
+  $('#connectionAction').value = existing?.action || 'block';
+  $('#connectionTarget').value = existing?.redirectUrl || '';
+  $('#connectionBody').value = existing?.modifyConfig?.resBody ?? '';
+  $('#connectionSummary').textContent = edge ? `${edge.sourceService} → ${edge.host}:${edge.port}` : '';
+  $('#connectionError').textContent = '';
+  $('#connectionDialog').showModal();
+}
+$('#graphConnect').addEventListener('click', () => openConnectionForm());
+$('#graphCanvas').addEventListener('pointerdown', event => {
+  const node = event.target.closest('[data-graph-service]');
+  if (!node?.dataset.graphService || event.button !== 0) return;
+  graphDrag = { service: node.dataset.graphService, x: event.clientX, y: event.clientY, left: parseFloat(node.style.left), top: parseFloat(node.style.top) };
+  graphDragged = false;
+});
+window.addEventListener('pointermove', event => {
+  if (!graphDrag) return;
+  const dx = event.clientX - graphDrag.x, dy = event.clientY - graphDrag.y;
+  if (Math.abs(dx) + Math.abs(dy) < 4 && !graphDragged) return;
+  graphDragged = true;
+  workspacePositions[graphDrag.service] = { x: Math.max(0, Math.min(10000, graphDrag.left + dx)), y: Math.max(0, Math.min(10000, graphDrag.top + dy)) };
+  renderGraph();
+});
+window.addEventListener('pointerup', async () => {
+  if (!graphDrag) return;
+  graphDrag = null;
+  if (!graphDragged) return;
+  setTimeout(() => { graphDragged = false; }, 0);
+  try {
+    const response = await fetch('/workspace/layout', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(workspacePositions) });
+    if (!response.ok) throw new Error('Could not save graph positions');
+  } catch (err) { console.error(err); }
+});
+$('#connectionClose').addEventListener('click', () => $('#connectionDialog').close());
+$('#connectionTraffic').addEventListener('click', () => {
+  state.connectionFilter = { sourceService: $('#connectionSource').value, host: $('#connectionHost').value.trim(), port: Number($('#connectionPort').value) };
+  state.filters.service = state.connectionFilter.sourceService;
+  $('#filterService').value = state.filters.service;
+  $('#clearConnection').style.display = '';
+  $('#connectionDialog').close();
+  if (document.body.classList.contains('graph-mode')) $('#graphToggle').click();
+  scheduleRender();
+});
+$('#clearConnection').addEventListener('click', () => { state.connectionFilter = null; $('#clearConnection').style.display = 'none'; scheduleRender(); });
+$('#connectionForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  try {
+    const action = $('#connectionAction').value;
+    const rule = { host: $('#connectionHost').value.trim(), destinationPort: Number($('#connectionPort').value), sourceService: $('#connectionSource').value, direction: 'OUT', method: '*', path: '*', action };
+    if (action === 'redirect') rule.redirectUrl = $('#connectionTarget').value;
+    if (action === 'modify') rule.modifyConfig = { resBody: $('#connectionBody').value };
+    const existing = state.rules.find(item => item.sourceService === rule.sourceService && item.host === rule.host && Number(item.destinationPort) === rule.destinationPort && item.direction === 'OUT' && item.method === '*' && item.path === '*');
+    const response = await fetch(existing ? `/api/rules/${encodeURIComponent(existing.id)}` : '/api/rules', { method: existing ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rule) });
+    const data = await response.json(); if (!response.ok) throw new Error(data.error);
+    $('#connectionDialog').close();
+  } catch (err) { $('#connectionError').textContent = err.message; }
+});
+window.addEventListener('resize', () => { if (document.body.classList.contains('graph-mode')) renderGraph(); });
 
 es.addEventListener('request', (e) => {
   const r = JSON.parse(e.data);
-  r.displayId = state.nextDisplayId++;
-  state.requests.push(r);
+  const existing = state.requests.find(item => item.id === r.id && item.direction === r.direction);
+  if (existing) {
+    Object.assign(existing, r);
+    if (existing.displayId === state.selectedId) renderDetail();
+  } else {
+    r.displayId = state.nextDisplayId++;
+    state.requests.push(r);
+  }
 
   // Track hosts for filter
   if (r.host && !state.knownHosts.has(r.host)) {
@@ -897,11 +1236,13 @@ es.addEventListener('request', (e) => {
   }
 
   scheduleRender();
+  if (document.body.classList.contains('graph-mode')) renderGraph();
 });
 
 es.addEventListener('rules-change', (e) => {
   state.rules = JSON.parse(e.data);
   renderRules();
+  if (document.body.classList.contains('graph-mode')) renderGraph();
   updateToggleButtons();
 });
 
@@ -939,10 +1280,13 @@ $('#filterMethod').addEventListener('change', (e) => { state.filters.method = e.
 $('#filterDir').addEventListener('change', (e) => { state.filters.dir = e.target.value; scheduleRender(); });
 $('#filterStatus').addEventListener('change', (e) => { state.filters.status = e.target.value; scheduleRender(); });
 $('#filterHost').addEventListener('change', (e) => { state.filters.host = e.target.value; scheduleRender(); });
+$('#filterService').addEventListener('change', (e) => { state.filters.service = e.target.value; state.connectionFilter = null; $('#clearConnection').style.display = 'none'; scheduleRender(); });
 $('#filterSearch').addEventListener('input', (e) => { state.filters.search = e.target.value; scheduleRender(); });
 
 // Clear
 $('#clearBtn').addEventListener('click', () => {
+  state.connectionFilter = null;
+  $('#clearConnection').style.display = 'none';
   state.requests.length = 0;
   state.selectedId = null;
   state.nextDisplayId = 1;
@@ -1036,6 +1380,7 @@ $('#rulesClose').addEventListener('click', () => toggleRulesDrawer(false));
 $('#ruleAction').addEventListener('change', (e) => {
   $('#modifyFields').classList.toggle('visible', e.target.value === 'modify');
   $('#breakpointFields').classList.toggle('visible', e.target.value === 'breakpoint');
+  $('#redirectFields').style.display = e.target.value === 'redirect' ? '' : 'none';
 });
 
 function resetRuleForm() {
@@ -1045,6 +1390,7 @@ function resetRuleForm() {
   $('#rulePath').value = '*';
   $('#ruleAction').value = 'block';
   $('#ruleDirection').value = 'OUT';
+  $('#ruleSourceService').value = ''; $('#ruleDestinationPort').value = ''; $('#ruleRedirectUrl').value = ''; $('#redirectFields').style.display = 'none';
   $('#modifyFields').classList.remove('visible');
   $('#breakpointFields').classList.remove('visible');
   $('#modifyNoForward').checked = false;
@@ -1067,6 +1413,7 @@ function prefillRuleForm(r) {
   $('#rulePath').value = r.path || '*';
   $('#ruleAction').value = r.action || 'block';
   $('#ruleDirection').value = r.direction || 'OUT';
+  $('#ruleSourceService').value = r.sourceService || ''; $('#ruleDestinationPort').value = r.destinationPort ?? ''; $('#ruleRedirectUrl').value = r.redirectUrl || ''; $('#redirectFields').style.display = r.action === 'redirect' ? '' : 'none';
   $('#modifyFields').classList.toggle('visible', r.action === 'modify');
   $('#breakpointFields').classList.toggle('visible', r.action === 'breakpoint');
   if (r.action === 'modify' && r.modifyConfig) {
@@ -1099,7 +1446,10 @@ $('#addRuleBtn').addEventListener('click', async () => {
     path: $('#rulePath').value.trim() || '*',
     action,
     direction: $('#ruleDirection').value,
+    sourceService: $('#ruleSourceService').value.trim() || null,
+    destinationPort: $('#ruleDestinationPort').value ? Number($('#ruleDestinationPort').value) : null,
   };
+  if (action === 'redirect') data.redirectUrl = $('#ruleRedirectUrl').value.trim();
   if (action === 'modify') {
     const reqSetRaw = $('#modifyReqSetHeaders').value.trim();
     const reqRemoveRaw = $('#modifyReqRemoveHeaders').value.trim();
@@ -1126,16 +1476,19 @@ $('#addRuleBtn').addEventListener('click', async () => {
   }
 
   const editId = $('#editRuleId').value.trim();
+  try {
   if (editId) {
-    await fetch(`/api/rules/${editId}`, {
+    const response = await fetch(`/api/rules/${editId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
+    if (!response.ok) throw new Error((await response.json()).error || 'Could not update rule');
   } else {
     await apiAddRule(data);
   }
   resetRuleForm();
+  } catch (err) { alert(err.message); }
 });
 
 rulesList.addEventListener('click', async (e) => {
@@ -1257,6 +1610,13 @@ function updateBpBadge() {
   document.getElementById('bpEmpty').style.display = count === 0 ? '' : 'none';
 }
 
+for (const [id, action] of [['continueAll', 'continue'], ['blockAll', 'block']]) {
+  document.getElementById(id).addEventListener('click', async () => {
+    const response = await fetch('/api/breakpoints/resolve-all', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) });
+    if (!response.ok) alert('Could not resolve pending requests');
+  });
+}
+
 function renderBpCard(bp) {
   const card = document.createElement('div');
   card.className = 'bp-card';
@@ -1268,6 +1628,8 @@ function renderBpCard(bp) {
       <span class="method-badge method-${escHtml(bp.method)}">${escHtml(bp.method)}</span>
       <span class="dir-badge dir-${escHtml(bp.direction)}">${escHtml(bp.direction)}</span>
       <span style="color:var(--text-dim);font-size:0.68rem">${escHtml(bp.phase)}</span>
+      ${bp.service ? `<span style="color:var(--cyan);font-size:0.68rem">${escHtml(bp.service)}</span>` : ''}
+      ${bp.source === 'intercept' ? '<span style="color:var(--yellow);font-size:0.68rem">intercept</span>' : ''}
       <span style="color:var(--text-bright);font-size:0.72rem">${escHtml(bp.host)}${escHtml(bp.path)}</span>
       <span class="bp-timer" id="bptimer-${escHtml(bp.id)}">${bp.timeoutMs > 0 ? remaining + 's' : '&#8734;'}</span>
     </div>

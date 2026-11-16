@@ -1,6 +1,6 @@
 {
   "name": "@marcosreuquen/peekr",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Zero-dependency HTTP capture proxy — intercept, log and forward requests from any app to any upstream service.",
   "type": "module",
   "bin": {
@@ -9,10 +9,12 @@
   "files": [
     "bin/",
     "lib/",
-    "ui/"
+    "ui/",
+    "examples/"
   ],
   "scripts": {
-    "test": "node --check bin/peekr.mjs && node --check lib/*.mjs && node bin/peekr.mjs --help",
+    "demo:workspace": "node examples/workspace-demo/start.mjs",
+    "test": "node --test test/*.test.mjs",
     "lint": "node --check bin/peekr.mjs && node --check lib/*.mjs"
   },
   "engines": {

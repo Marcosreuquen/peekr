@@ -9,7 +9,7 @@ on:
 
 jobs:
   test:
-    name: Smoke test (Node ${{ matrix.node-version }})
+    name: Test (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -33,3 +33,9 @@ jobs:
           node bin/peekr.mjs run --help
           node bin/peekr.mjs ui --help
           node bin/peekr.mjs logs --help
+          node bin/peekr.mjs workspace --help
+          node bin/peekr.mjs add --help
+          node bin/peekr.mjs demo --help
+
+      - name: Integration tests
+        run: npm test

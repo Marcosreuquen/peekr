@@ -2,6 +2,38 @@
 
 Peekr provides four commands, each suited to a different workflow. All commands share a common set of capture flags.
 
+## Experimental Workspaces
+
+Start a workspace and open the printed URL to manage services and inspect traffic:
+
+```bash
+peekr workspace start --name local
+peekr add --workspace local --name api --app-port 3000 -- python app.py
+peekr workspace save --workspace local --file workspace.json
+peekr workspace start --config workspace.json --start-services
+```
+
+Each service gets a local incoming reverse proxy and an outgoing HTTP/HTTPS
+proxy. Peekr uses OpenSSL to generate a local CA in `~/.peekr/ca`. For launched
+services it sets proxy and CA environment variables; clients must support those
+variables or be configured explicitly. Node proxy support varies by version and
+HTTP client. For an already-running service, `peekr add` prints the outgoing
+proxy and CA paths; configure and restart the service to use them. The workspace
+dashboard can register running services and inspect their captured traffic.
+Certificate pinning, mutual TLS, WebSockets and HTTP/2 are not supported.
+
+The Services panel can edit and remove services, and start or stop processes
+managed by the workspace. TCP reachability is separate from whether incoming,
+outgoing or HTTPS traffic has actually been observed. `peekr add -- <command>`
+launches its process from the CLI, so the workspace treats it as external.
+
+**Graph** shows observed and configured connections. **Connect** creates a
+source-scoped outgoing rule, while clicking an arrow opens its rule and traffic
+controls. Redirects accept an HTTP/HTTPS origin and keep the original path.
+Save the workspace to persist services, rules and node positions; existing files
+are not overwritten. The optional `--start-services` flag starts saved commands.
+Pending requests can be continued or blocked individually or in bulk.
+
 Ports can also be read from `peekr.config.json` or `.peekrrc.json`. Use `--config <path>` to point at a different JSON file. CLI flags always take precedence over config values.
 
 ---

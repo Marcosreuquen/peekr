@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2026-11-16
+
+### Added
+
+- Experimental workspaces with service registration, management, explicit save and restore, and optional startup of saved commands.
+- Per-service incoming and outgoing HTTP proxies, HTTPS interception using a local CA, and a dashboard with observed capture status.
+- Global request interception, bulk continue/block, and cancellation when clients disconnect.
+- Workspace graph with observed connections, editable positions, connection-scoped rules, and outgoing redirects.
+- A local demo with Node.js and Python services, including circular and simulated external traffic.
+- Integration coverage for workspace lifecycle, proxy behavior, TLS and intercept handling.
+
+### Changed
+
+- The legacy child runner no longer disables TLS certificate verification in the child process.
+- Request rows appear when forwarded and are updated when their responses arrive.
+- Certificate generation is coordinated across concurrent Peekr processes.
+
+### Limitations
+
+- Workspace and graph features are experimental; interception depends on client proxy support. Certificate pinning, mutual TLS, WebSockets and HTTP/2 are not supported by the workspace proxy.
+
 ## [0.3.2] - 2026-08-20
 
 ### Changed

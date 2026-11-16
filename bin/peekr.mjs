@@ -9,7 +9,21 @@ const { version: packageVersion } = JSON.parse(
 );
 const subcommand = process.argv[2];
 
-if (subcommand === 'run') {
+if (subcommand === 'demo') {
+  if (process.argv.includes('--help') || process.argv.includes('-h')) {
+    console.log('Usage: peekr demo\n\nStart the local workspace demo (requires Python 3 and OpenSSL).');
+  } else {
+    await import('../examples/workspace-demo/start.mjs');
+  }
+} else if (subcommand === 'add') {
+  const { addServiceCommand } = await import('../lib/workspace-command.mjs');
+  try { await addServiceCommand(process.argv.slice(3)); }
+  catch (err) { console.error(`peekr add: ${err.message}`); process.exitCode = 1; }
+} else if (subcommand === 'workspace') {
+  const { workspaceCommand } = await import('../lib/workspace-command.mjs');
+  try { await workspaceCommand(process.argv.slice(3)); }
+  catch (err) { console.error(`peekr workspace: ${err.message}`); process.exitCode = 1; }
+} else if (subcommand === 'run') {
   const args = process.argv.slice(3);
   if (args.includes('-h') || args.includes('--help')) {
     console.log(`
@@ -162,6 +176,9 @@ Usage:
   peekr ui [options] [-- <command>]        Live web dashboard
 
 Subcommands:
+  demo  Start the local workspace demo. Run: peekr demo --help
+  add   Add a service to a running workspace. Run: peekr add --help
+  workspace  Start a workspace or add a running service. Run: peekr workspace --help
   run   Spawn your app with all outgoing HTTP/HTTPS automatically intercepted.
         No need to change .env or base URLs. Works with any Node.js HTTP client.
         Run: peekr run --help
